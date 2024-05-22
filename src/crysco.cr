@@ -18,7 +18,7 @@ module Crysco
     verbosity = Log::Severity::Info
 
     OptionParser.parse do |parser|
-      parser.banner = "run adsf"
+      parser.banner = "Usage: sudo ./crysco [OPTION]..."
       parser.on("-u UID", "--uid=UID", "uid and gid of the user in the container") { |opt_uid| uid = opt_uid.to_i }
       parser.on("-m DIR", "--mount=DIR", "directory to mount as root in the container") { |opt_mnt| mnt = opt_mnt }
       parser.on("-c CMD", "--cmd=CMD", "command to run in the container") { |opt_cmd| cmd = opt_cmd }
