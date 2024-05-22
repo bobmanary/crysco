@@ -1,0 +1,13 @@
+name: crysco
+version: 0.1.0
+
+authors:
+  - Bob Manary <rmanary@gmail.com>
+
+targets:
+  crysco:
+    main: src/crysco.cr
+
+crystal: '>= 1.11.2'
+
+license: MIT
