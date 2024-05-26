@@ -30,7 +30,7 @@ module Crysco
     # Creates container (process) with different properties than its parent
     # e.g. mount to different dir, different hostname, etc...
     # All these requirements are specified by the flags we pass to clone()
-    def self.spawn(config : ContainerConfig) : Container
+    def self.spawn(config : ContainerConfig, log_level : Log::Severity) : Container
       # The flags specify what the cloned process can do.
       # These allow some control overrmounts, pids, IPC data structures, network
       # devices and hostname.
@@ -59,8 +59,9 @@ module Crysco
       when 0
         # new child process with pid 1 inside namespace
         # this return is never reached (?)
+        puts log_level
         backend_with_formatter = Log::IOBackend.new(formatter: ChildFormatter, dispatcher: Log::DispatchMode::Sync)
-        Log.setup(:debug, backend_with_formatter) # Log debug and above for all sources to using a custom backend
+        Log.setup(log_level, backend_with_formatter) # Log debug and above for all sources to using a custom backend
 
         container = new(new_pid)
         unless container.child_start(config)

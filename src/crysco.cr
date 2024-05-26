@@ -15,7 +15,7 @@ module Crysco
     arg : String | Nil = nil
     mnt : String | Nil = nil
     cmd : String | Nil = nil
-    verbosity = Log::Severity::Info
+    log_level = Log::Severity::Info
 
     OptionParser.parse do |parser|
       parser.banner = "Usage: sudo ./crysco [OPTION]..."
@@ -23,7 +23,7 @@ module Crysco
       parser.on("-m DIR", "--mount=DIR", "directory to mount as root in the container") { |opt_mnt| mnt = opt_mnt }
       parser.on("-c CMD", "--cmd=CMD", "command to run in the container") { |opt_cmd| cmd = opt_cmd }
       parser.on("-a ARG", "--arg=ARG", "argument to pass to the command") { |opt_arg| arg = opt_arg}
-      parser.on("-v", "--verbose", "enable verbose output") { verbosity = Log::Severity::Debug }
+      parser.on("-v", "--verbose", "enable verbose output") { log_level = Log::Severity::Debug }
       parser.on("-h", "--help", "Show this help") do
         puts parser
         exit
@@ -35,7 +35,7 @@ module Crysco
     end
 
     log_backend = Log::IOBackend.new(dispatcher: Log::DispatchMode::Sync)
-    Log.setup(verbosity, log_backend) # Log debug and above for all sources to using a custom backend
+    Log.setup(log_level, log_backend) # Log debug and above for all sources to using a custom backend
 
 
     if mnt.nil? || cmd.nil?
@@ -66,7 +66,7 @@ module Crysco
     end
 
     Log.info { "Initializing container..." }
-    child = Container.spawn(config)
+    child = Container.spawn(config, log_level)
 
     Log.info { "Initializing cgroups..." }
     if !Cgroups.apply(config.hostname, child.pid)
@@ -89,8 +89,5 @@ module Crysco
     cleanup.call
   end
 end
-
-# puts Crysco::Mount.pivot_root("/tmp/tmp.Bz6iwzoKcd", "/tmp/tmp.Bz6iwzoKcd/inner")
-# puts Errno.value
 
 Crysco.main
