@@ -20,6 +20,7 @@ In this example, we create an environment with [BusyBox](https://en.wikipedia.or
 
 ```bash
 mkdir -p ~/crysco-busybox-container/bin
+mkdir -p ~/crysco-busybox-container/proc
 cd ~/crysco-busybox-container/bin
 wget https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
 chmod +x busybox
@@ -36,7 +37,6 @@ sudo ./crysco --mount ~/crysco-busybox-container --cmd /bin/find --arg /
 ## Potential improvements
 
  * Update libcap and libseccomp wrappers to have similar API styles
- * Add support for containerized proc filesystem
  * Investigate interaction of pty, TIOCSTI blocking, and BusyBox shells
  * Add ability to run complete shell commands instead of having a single --arg flag
  * Add options for managing environment variables

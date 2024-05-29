@@ -42,6 +42,7 @@ module Crysco::Mount
       return false
     end
 
+
     Log.debug {"Unmounting old root..."}
     old_root_dir = temp_inner_dir.basename
     old_root = Path.new("/", old_root_dir)
@@ -52,6 +53,12 @@ module Crysco::Mount
     Log.debug {"Unmounting #{old_root}..."}
     if !unmount(old_root)
       Log.error {"Failed to unmount #{old_root}"}
+      return false
+    end
+
+    Log.debug {"Mounting /proc in new root..."}
+    if !mount_proc(Path["proc"])
+      Log.error {"Failed to mount proc filesystem"}
       return false
     end
 
@@ -105,6 +112,17 @@ module Crysco::Mount
       Log.debug {"mount syscall failed with #{result}: #{Errno.from_value(result.abs).message} (#{source}, #{target}, #{flag_val.to_s(base: 2)})"}
     end
     result == 0
+  end
+
+  def self.mount_proc(target : Path)
+    t = target.to_s
+    Syscalls.mount(
+      "proc".to_unsafe,
+      t.to_unsafe,
+      "proc".to_unsafe,
+      0,
+      Pointer(UInt32).null
+    ) == 0
   end
 
   def self.unmount(path : Path) : Bool
