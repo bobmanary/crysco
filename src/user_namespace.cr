@@ -41,7 +41,6 @@ module Crysco::UserNamespace
       LibC.setresuid(uid, uid, uid) != 0
     )
       Log.error {"Failed to set uid #{uid} / gid #{uid} mappings"}
-      sleep 0.1
       return false
     end
 
