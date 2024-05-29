@@ -14,15 +14,22 @@ module Crysco::UserNamespace
   # separate group mechanisms on Linux. The function assumes that every uid has a
   # corresponding gid, which is often the case.
   def self.init(uid : UInt32, child_socket : UNIXSocket) : Bool
-    unshared : Int32 = Syscalls.unshare(Syscalls::ProcFlags::CLONE_NEWUSER)
-
     Log.debug {"Setting user namespace..."}
 
+    unshared : Int32 = Syscalls.unshare(Syscalls::ProcFlags::CLONE_NEWUSER)
+
     Log.debug {"Writing to socket..."}
+    # can't write a single boolean to socket, so use an int
+    # (0 == success)
     child_socket.write_bytes(unshared)
 
+    # wait for parent process to set up user namespace mapping
     Log.debug {"Reading from socket"}
     result : Int32 = child_socket.read_bytes(Int32)
+
+    if result != 0
+      return false
+    end
 
     Log.debug {"Switching to uid #{uid} and gid #{uid}"}
 
@@ -34,6 +41,7 @@ module Crysco::UserNamespace
       LibC.setresuid(uid, uid, uid) != 0
     )
       Log.error {"Failed to set uid #{uid} / gid #{uid} mappings"}
+      sleep 0.1
       return false
     end
 
@@ -45,21 +53,19 @@ module Crysco::UserNamespace
   # Listens for the child process to request setting uid / gid, then updates the
   # uid_map / gid_map for the child process to use. uid_map and gid_map are a
   # Linux kernel mechanism for mapping uids and gids between the parent and child
-  # parent. The parent process must be privileged to set the uid_map / gid_map.
+  # process. The parent process must be privileged to set the uid_map / gid_map.
   def self.prepare_mappings(container_process : Container, parent_socket : UNIXSocket) : Bool
-    map_fd = 0
-    unshared : Int32 = -1
     Log.debug {"Updating uid_map / gid_map..."}
+
     Log.debug {"Retrieving user namespaces status..."}
+    unshared : Int32 = parent_socket.read_bytes(Int32)
 
-    # why are we reading/writing integers?
-    read_value = parent_socket.read_bytes(Int32)
-
-    if unshared != 0
+    if unshared == 0
       Log.debug {"User namespaces enabled"}
 
       Log.debug {"Writing uid_map / gid_map..."}
       {"uid_map", "gid_map"}.each do |map_filename|
+        # eg /proc/123/uid_map
         map_path = Path["/proc", container_process.pid.to_s, map_filename]
 
         Log.debug {"Writing #{map_path}"...}
@@ -71,8 +77,8 @@ module Crysco::UserNamespace
           Log.error {"Failed to write #{map_filename}"}
           return false
         end
-
       end
+
       Log.debug {"uid_map and gid_map updated"}
     end
 

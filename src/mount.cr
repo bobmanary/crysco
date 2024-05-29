@@ -24,7 +24,7 @@ module Crysco::Mount
     Log.debug {"Bind mount..."}
     bind_mount_flags = Syscalls::MountFlags::MS_BIND | Syscalls::MountFlags::MS_PRIVATE
     if !mount(mnt, tempdir, bind_mount_flags)
-      Log.error {"Failed to bind mount on #{mnt}"}
+      Log.error {"Failed to bind mount '#{mnt}' to '#{tempdir}'"}
       return false
     end
 
@@ -35,6 +35,8 @@ module Crysco::Mount
     end
 
     Log.debug {"Pivot root with #{tempdir}, #{temp_inner_dir}..."}
+    # move the previous top-level / to a subdirectory and set the process's
+    # root to tempdir
     if !pivot_root(tempdir, temp_inner_dir)
       Log.error {"Failed to pivot root with #{tempdir}, #{temp_inner_dir}"}
       return false
@@ -47,13 +49,18 @@ module Crysco::Mount
     Log.debug {"Changing directory to /..."}
     Dir.cd("/")
   
-    Log.debug {"Unmounting..."}
+    Log.debug {"Unmounting #{old_root}..."}
     if !unmount(old_root)
       Log.error {"Failed to unmount #{old_root}"}
       return false
     end
 
     Log.debug {"Removing temporary directories..."}
+    if Path["/"] == old_root
+      # shouldn't happen
+      Log.error {"Path was root!"}
+      return false
+    end
     FileUtils.rmdir(old_root)
 
     Log.debug {"Mount set"}
@@ -62,7 +69,11 @@ module Crysco::Mount
 
   def self.mktempdir(dir : Path? = nil) : Path | Nil
     name = Path.new(
-      dir.nil? ? File.tempname(suffix: ".d") : File.tempname(suffix: ".d", dir: dir.to_s)
+      if dir.nil?
+        File.tempname(prefix: "crysco", suffix: ".d")
+      else
+        File.tempname(prefix: "crysco", suffix: ".d", dir: dir.to_s)
+      end
     )
     Dir.mkdir(name)
     if !Dir.exists?(name)
