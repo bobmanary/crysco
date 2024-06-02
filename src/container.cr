@@ -12,10 +12,10 @@ module Crysco
     property child_socket : UNIXSocket
     property hostname : String
     property cmd : String
-    property arg : String?
+    property args : Array(String)
     property mnt : Path
 
-    def initialize(@uid, @child_socket, @hostname, @cmd, @arg, @mnt)
+    def initialize(@uid, @child_socket, @hostname, @cmd, @args, @mnt)
     end
   end
 
@@ -100,11 +100,10 @@ module Crysco
       Log.debug {"Closing container socket..."}
       config.child_socket.close()
 
-      Log.debug {"Executing command #{config.cmd} #{config.arg} from directory #{config.mnt} in container..."}
+      Log.debug {"Executing command #{config.cmd} #{config.args.join(" ")} from directory #{config.mnt} in container..."}
       Log.info {"### CONTAINER STARTING - type 'exit' to quit ###"}
 
-      args = config.arg.nil? ? [] of String : [config.arg.as(String)]
-      Process.exec(config.cmd, args, shell: false)
+      Process.exec(config.cmd, config.args, shell: false)
 
       return true
     end

@@ -30,12 +30,12 @@ while read -r cmd; do
 done < <(./busybox --list)
 
 # cd back to your crysco repository, then:
-sudo ./crysco --mount ~/crysco-busybox-container --cmd /bin/find --arg /
+sudo ./crysco run --mount ~/crysco-busybox-container /bin/ls -- -alh /bin
 ```
 
 ## Potential improvements
 
  * Update libcap and libseccomp wrappers to have similar API styles
  * Investigate interaction of pty, TIOCSTI blocking, and BusyBox shells
- * Add ability to run complete shell commands instead of having a single --arg flag
  * Add options for managing environment variables
+ * Handle missing container root gracefully

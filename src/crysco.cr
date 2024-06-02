@@ -12,26 +12,48 @@ module Crysco
 
   def self.main
     uid = 0
-    arg : String | Nil = nil
     mnt : String | Nil = nil
     cmd : String | Nil = nil
+    cmd_run = false
+    cmd_args = [] of String
     log_level = Log::Severity::Info
 
-    OptionParser.parse do |parser|
-      parser.banner = "Usage: sudo ./crysco [OPTION]..."
-      parser.on("-u UID", "--uid=UID", "uid and gid of the user in the container") { |opt_uid| uid = opt_uid.to_i }
-      parser.on("-m DIR", "--mount=DIR", "directory to mount as root in the container") { |opt_mnt| mnt = opt_mnt }
-      parser.on("-c CMD", "--cmd=CMD", "command to run in the container") { |opt_cmd| cmd = opt_cmd }
-      parser.on("-a ARG", "--arg=ARG", "argument to pass to the command") { |opt_arg| arg = opt_arg}
+    optparse = OptionParser.parse do |parser|
+      parser.on("run", "run a command in a container") do
+        cmd_run = true
+        parser.banner = "Usage: crysco run [OPTIONS] COMMAND [-- ARGS]"
+        parser.on("-u UID", "--uid=UID", "uid and gid of the user in the container") { |opt_uid| uid = opt_uid.to_i }
+        parser.on("-m DIR", "--mount=DIR", "directory to mount as root in the container") { |opt_mnt| mnt = opt_mnt }
+        parser.unknown_args do |before, after|
+          unless before.empty?
+            cmd = before.first
+          else
+            puts "A command is required.\nSee 'crysco run --help'"
+            exit 1
+          end
+
+          cmd_args = after
+        end
+        parser.on("-h", "--help", "Show this help") do
+          puts parser
+          exit
+        end
+      end
+      parser.banner = "Usage: sudo ./crysco [OPTIONS] command [ARGS]"
       parser.on("-v", "--verbose", "enable verbose output") { log_level = Log::Severity::Debug }
       parser.on("-h", "--help", "Show this help") do
         puts parser
         exit
       end
       parser.missing_option do |option|
-        puts "missing #{option}"
+        puts "missing option for #{option}"
         exit 1
       end
+    end
+
+    if !cmd_run
+      puts optparse
+      exit
     end
 
     log_backend = Log::IOBackend.new(dispatcher: Log::DispatchMode::Sync)
@@ -55,7 +77,7 @@ module Crysco
 
     sockets = UNIXSocket.pair(Socket::Type::SEQPACKET)
 
-    config = ContainerConfig.new(uid, sockets[1], "mycontainer", cmd.as(String), arg, Path[mnt.as(String)].normalize)
+    config = ContainerConfig.new(uid, sockets[1], "mycontainer", cmd.as(String), cmd_args, Path[mnt.as(String)].normalize)
 
     cleanup = -> do
       Log.debug {"Freeing sockets..."}
