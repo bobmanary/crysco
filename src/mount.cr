@@ -42,7 +42,6 @@ module Crysco::Mount
       return false
     end
 
-
     Log.debug {"Unmounting old root..."}
     old_root_dir = temp_inner_dir.basename
     old_root = Path.new("/", old_root_dir)
@@ -57,6 +56,7 @@ module Crysco::Mount
     end
 
     Log.debug {"Mounting /proc in new root..."}
+    Dir.mkdir_p(Path["proc"])
     if !mount_proc(Path["proc"])
       Log.error {"Failed to mount proc filesystem"}
       return false

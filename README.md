@@ -20,7 +20,6 @@ In this example, we create an environment with [BusyBox](https://en.wikipedia.or
 
 ```bash
 mkdir -p ~/crysco-busybox-container/bin
-mkdir -p ~/crysco-busybox-container/proc
 cd ~/crysco-busybox-container/bin
 wget https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
 chmod +x busybox
