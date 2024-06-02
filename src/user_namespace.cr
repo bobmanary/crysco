@@ -1,6 +1,7 @@
 require "./syscalls"
 require "lib_c"
 require "./container"
+require "./lib/linux"
 
 module Crysco::UserNamespace
   USER_NAMESPACE_UID_PARENT_RANGE_START = 0
@@ -36,9 +37,9 @@ module Crysco::UserNamespace
     Log.debug {"Setting uid and gid mappings..."}
     c_uids = StaticArray(LibC::UidT, 1).new(uid)
     if (
-      LibC.setgroups(1u64, c_uids) != 0 ||
-      LibC.setresgid(uid, uid, uid) != 0 ||
-      LibC.setresuid(uid, uid, uid) != 0
+      Linux.setgroups(1u64, c_uids) != 0 ||
+      Linux.setresgid(uid, uid, uid) != 0 ||
+      Linux.setresuid(uid, uid, uid) != 0
     )
       Log.error {"Failed to set uid #{uid} / gid #{uid} mappings"}
       return false
@@ -86,10 +87,4 @@ module Crysco::UserNamespace
 
     return true
   end
-end
-
-lib LibC
-  fun setgroups(n : SizeT, groups : GidT*) : LibC::Int
-  fun setresgid(real_gid : GidT, effective_gid : GidT, savedset_gid : GidT) : LibC::Int
-  fun setresuid(real_uid : UidT, effective_uid : UidT, savedset_uid : UidT) : LibC::Int
 end
