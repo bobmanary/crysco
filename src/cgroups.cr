@@ -9,7 +9,7 @@ module Crysco
   end
 
   module Cgroups
-    def self.apply(hostname, pid) : Bool
+    def self.initialize(hostname, pid) : Bool
       cgroup_path = Path.new("/sys", "fs", "cgroup", hostname)
 
       begin
@@ -38,10 +38,22 @@ module Crysco
       return true
     end
 
+    def self.join(hostname, pid)
+      cgroup_procs_path = Path.new("/sys", "fs", "cgroup", hostname, pid.to_s)
+      File.write(cgroup_procs_path, pid.to_s, mode: "a")
+      Log.debug { "Added pid##{pid} to existing cgroup #{hostname}" }
+      return true
+    end
+
     def self.free(hostname)
       cgroup_path = Path.new("/sys", "fs", "cgroup", hostname)
       FileUtils.rmdir(cgroup_path)
       Log.debug { "cgroups released" }
+    end
+
+    def self.exists?(hostname)
+      cgroup_path = Path.new("/sys", "fs", "cgroup", hostname)
+      Dir.exists?(cgroup_path)
     end
   end
 end
