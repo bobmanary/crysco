@@ -39,7 +39,7 @@ module Crysco
     end
 
     def self.join(hostname, pid)
-      cgroup_procs_path = Path.new("/sys", "fs", "cgroup", hostname, pid.to_s)
+      cgroup_procs_path = Path.new("/sys", "fs", "cgroup", hostname, "cgroup.procs")
       File.write(cgroup_procs_path, pid.to_s, mode: "a")
       Log.debug { "Added pid##{pid} to existing cgroup #{hostname}" }
       return true
@@ -49,6 +49,14 @@ module Crysco
       cgroup_path = Path.new("/sys", "fs", "cgroup", hostname)
       FileUtils.rmdir(cgroup_path)
       Log.debug { "cgroups released" }
+    end
+
+    # for joining an existing set of namespaces, get the pid of
+    # any process in the relevant cgroup
+    def self.find_pid(hostname)
+      cgroup_procs_path = Path.new("/sys", "fs", "cgroup", hostname, "cgroup.procs")
+      puts "existing pids in cgroup:"
+      puts File.read(cgroup_procs_path)
     end
 
     def self.exists?(hostname)

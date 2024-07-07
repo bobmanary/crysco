@@ -73,8 +73,8 @@ module Crysco
     end
 
     if existing_cgroup_id.size > 0
-      hostname = "crysco_#{existing_cgroup_id}"
-      unless Cgroups.exists?(hostname)
+      container_hostname = "crysco_#{existing_cgroup_id}"
+      unless Cgroups.exists?(container_hostname)
         Log.error { "Container '#{existing_cgroup_id}' does not exist" }
         exit 1
       end
@@ -89,7 +89,7 @@ module Crysco
 
     sockets = UNIXSocket.pair(Socket::Type::SEQPACKET)
 
-    config = ContainerConfig.new(uid, sockets[1], Hostname.generate, cmd.as(String), cmd_args, Path[mnt.as(String)].normalize)
+    config = ContainerConfig.new(uid, sockets[1], container_hostname, cmd.as(String), cmd_args, Path[mnt.as(String)].normalize)
 
     cleanup = -> do
       Log.debug {"Freeing sockets..."}
@@ -99,6 +99,7 @@ module Crysco
       Cgroups.free(config.hostname)
     end
 
+    # TODO: move inside exec_in_existing/else block and call spawn_into_existing
     Log.info { "Initializing container..." }
     child = Container.spawn(config, log_level)
 
