@@ -89,7 +89,10 @@ module Crysco
 
     sockets = UNIXSocket.pair(Socket::Type::SEQPACKET)
 
-    config = ContainerConfig.new(uid, sockets[1], container_hostname, cmd.as(String), cmd_args, Path[mnt.as(String)].normalize)
+    config = ContainerConfig.new(
+      uid, sockets[1], container_hostname, cmd.as(String), cmd_args,
+      Path[mnt.as(String)].normalize, exec_in_existing
+    )
 
     cleanup = -> do
       Log.debug {"Freeing sockets..."}

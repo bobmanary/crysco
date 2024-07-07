@@ -14,14 +14,22 @@ module Crysco
     property cmd : String
     property args : Array(String)
     property mnt : Path
+    property use_existing : Bool
 
-    def initialize(@uid, @child_socket, @hostname, @cmd, @args, @mnt)
+    def initialize(@uid, @child_socket, @hostname, @cmd, @args, @mnt, @use_existing)
     end
   end
 
   class Container
     getter pid : Int32
     @process : Crystal::System::Process
+
+    # The flags specify what the cloned process can do.
+    # These allow some control overrmounts, pids, IPC data structures, network
+    # devices and hostname.
+    NAMESPACE_FLAGS = Syscalls::ProcFlags::CLONE_NEWNS | Syscalls::ProcFlags::CLONE_NEWCGROUP |
+            Syscalls::ProcFlags::CLONE_NEWPID | Syscalls::ProcFlags::CLONE_NEWIPC |
+            Syscalls::ProcFlags::CLONE_NEWNET | Syscalls::ProcFlags::CLONE_NEWUTS
 
     private def initialize(@pid)
       @process = Crystal::System::Process.new(@pid)
@@ -31,14 +39,6 @@ module Crysco
     # e.g. mount to different dir, different hostname, etc...
     # All these requirements are specified by the flags we pass to clone()
     def self.spawn(config : ContainerConfig, log_level : Log::Severity) : Container
-      # The flags specify what the cloned process can do.
-      # These allow some control overrmounts, pids, IPC data structures, network
-      # devices and hostname.
-      flags = Syscalls::ProcFlags::CLONE_NEWNS | Syscalls::ProcFlags::CLONE_NEWCGROUP |
-              Syscalls::ProcFlags::CLONE_NEWPID | Syscalls::ProcFlags::CLONE_NEWIPC |
-              Syscalls::ProcFlags::CLONE_NEWNET | Syscalls::ProcFlags::CLONE_NEWUTS |
-              Syscalls::ProcFlags::SIGCHLD;
-      # SIGCHLD lets us wait on the child process.
 
       # unused but necessary
       stack = Pointer(Void).null
@@ -48,9 +48,19 @@ module Crysco
 
       Log.debug { "cloning process..." }
 
+      # if execing into an existing cgroup and namespaces, don't set any CLONE_NEW* flags
+      # and call `setns` after the process is created to inherit the namespaces of one
+      # of the existing processes.
+      # SIGCHLD lets us wait() on the child process, but it's an invalid flag for `setns`.
+      clone_flags = if config.use_existing
+        Syscalls::ProcFlags::SIGCHLD
+      else
+        NAMESPACE_FLAGS | Syscalls::ProcFlags::SIGCHLD
+      end
+
       # clone is a superset of fork's functionality, so the same considerations as
       # calling fork in Crystal apply here.
-      new_pid = Syscalls.clone(flags, stack, parent_tid, child_tid, tls)
+      new_pid = Syscalls.clone(clone_flags, stack, parent_tid, child_tid, tls)
 
       case new_pid
       when -1
@@ -58,10 +68,16 @@ module Crysco
         exit 2
       when 0
         # new child process with pid 1 inside namespace
-        # this return is never reached (?)
-        puts log_level
         backend_with_formatter = Log::IOBackend.new(formatter: ChildFormatter, dispatcher: Log::DispatchMode::Sync)
         Log.setup(log_level, backend_with_formatter) # Log debug and above for all sources to using a custom backend
+
+        if config.use_existing
+          pidfd = Cgroups.get_pid_fd(config.hostname)
+          Log.debug { "Moving new process to namespaces for existing process..." }
+          unless Syscalls.setns(pidfd, NAMESPACE_FLAGS) == 0
+            raise RuntimeError.from_errno("Could not assign existing namespaces")
+          end
+        end
 
         container = new(new_pid)
         unless container.child_start(config)
@@ -70,6 +86,7 @@ module Crysco
         end
 
         exit 0
+        # this return is never reached (?)
         return container
       else
         # this is the parent process, and it received the pid of the new process
@@ -102,7 +119,7 @@ module Crysco
 
       Log.debug {"Executing command #{config.cmd} #{config.args.join(" ")} from directory #{config.mnt} in container..."}
       Log.info {"### CONTAINER STARTING - type 'exit' to quit ###"}
-
+      Log.info {"Container ID: #{config.hostname}"}
       Process.exec(config.cmd, config.args, shell: false)
 
       return true

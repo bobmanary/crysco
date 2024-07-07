@@ -9,11 +9,13 @@ module Crysco::Syscalls
   # tls should be Pointer(Void).null.
   Syscall.def_syscall clone, LibC::Int, flags : ProcFlags, stack : Void*, parent_tid : LibC::Int*, child_tid : LibC::Int*, tls : Void*
 
-  # Syscall.def_syscall clone3, LibC::Long, cl_args : Clone3::CloneArgs*, LibC::SizeT
+  # Syscall.def_syscall clone3, LibC::Long, cl_args : Clone3::CloneArgs*, size : LibC::SizeT
   Syscall.def_syscall geteuid, LibC::Int
   Syscall.def_syscall unshare, LibC::Int, flags : ProcFlags
   Syscall.def_syscall umount2, LibC::Int, target : UInt8*, flags : MountFlags
   Syscall.def_syscall prctl, LibC::Int, option : LibC::Int, arg2 : LibC::ULong, arg3 : LibC::ULong, arg4 : LibC::ULong, arg5 : LibC::ULong
+  Syscall.def_syscall setns, LibC::Int, fd : LibC::Int, nstype : ProcFlags
+  Syscall.def_syscall pidfd_open, LibC::Int, pid : LibC::PidT, flags : LibC::UInt
 
   @[Flags]
   enum MountFlags
@@ -41,8 +43,9 @@ module Crysco::Syscalls
   # lib Clone3
   #   struct CloneArgs
   #     flags, pidfd, child_tid, parent_tid, exit_signal,
-  #       stack, stack_size, tls, set_tid, set_tid_size,
-  #       cgroup : LibC::ULongLong
+  #     stack, stack_size, tls, set_tid, set_tid_size,
+  #     cgroup : LibC::ULongLong
   #   end
+  #   CLARGS_SIZE = sizeof(CloneArgs)
   # end
 end
