@@ -98,11 +98,12 @@ module Crysco
       Log.debug {"Freeing sockets..."}
       sockets[0].close
       sockets[1].close
-      Log.debug {"Freeing cgroups..."}
-      Cgroups.free(config.hostname)
+      unless exec_in_existing
+        Log.debug {"Freeing cgroups..."}
+        Cgroups.free(config.hostname)
+      end
     end
 
-    # TODO: move inside exec_in_existing/else block and call spawn_into_existing
     Log.info { "Initializing container..." }
     child = Container.spawn(config, log_level)
 
