@@ -5,7 +5,7 @@ require "./sec"
 require "log"
 
 module Crysco
-  Log.define_formatter ChildFormatter, "child: #{severity}: #{message}"
+  Log.define_formatter ChildFormatter, "[child] #{severity}: #{message}"
 
   class ContainerConfig
     property uid : Int32
@@ -46,7 +46,7 @@ module Crysco
       child_tid = Pointer(LibC::Int).null
       tls = Pointer(Void).null
 
-      Log.debug { "cloning process..." }
+      Log.debug {"Cloning process..."}
 
       # if execing into an existing cgroup and namespaces, don't set any CLONE_NEW* flags
       # and call `setns` after the process is created to inherit the namespaces of one
@@ -64,7 +64,7 @@ module Crysco
 
       case new_pid
       when -1
-        Log.error { "Failed to clone" }
+        Log.error {"Failed to clone"}
         exit 2
       when 0
         # new child process with pid 1 inside namespace
@@ -73,10 +73,12 @@ module Crysco
 
         if config.use_existing
           pidfd = Cgroups.get_pid_fd(config.hostname)
-          Log.debug { "Moving new process to namespaces for existing process..." }
+          Log.debug {"Moving new process to namespaces for existing process..."}
+          puts "PID a: #{Process.pid}"
           unless Syscalls.setns(pidfd, NAMESPACE_FLAGS) == 0
             raise RuntimeError.from_errno("Could not assign existing namespaces")
           end
+          puts "PID b: #{Process.pid}"
         end
 
         container = new(new_pid)
@@ -100,16 +102,21 @@ module Crysco
     end
 
     def child_start(config : ContainerConfig) : Bool
-      Log.debug {"starting container"}
-      Log.debug {"setting hostname, mounts, user namespace, capabilities and syscalls..."}
+      Log.debug {"Starting container"}
 
-      unless (
+      Log.debug {"Setting hostname, mounts, user namespace, capabilities and syscalls..."}
+      properties_initialized = if config.use_existing
+        Sec.set_capabilities() &&
+        Sec.set_seccomp_filters()
+      else
         Hostname.set(config.hostname) &&
         Mount.set(config.mnt) &&
         UserNamespace.init(0u32, config.child_socket) &&
         Sec.set_capabilities() &&
         Sec.set_seccomp_filters()
-      )
+      end
+
+      unless properties_initialized
         Log.debug {"Failed to set container properties"}
         return false
       end

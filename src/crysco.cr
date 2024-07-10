@@ -119,13 +119,13 @@ module Crysco
         cleanup.call
         exit 1
       end
-    end
 
-    Log.info { "Configuring user namespace..." }
-    unless UserNamespace.prepare_mappings(child, sockets[0])
-      Log.fatal {"Failed to set user namespace mappings, stopping container..."}
-      cleanup.call
-      exit 1
+      Log.info { "Configuring user namespace..." }
+      unless UserNamespace.prepare_mappings(child, sockets[0])
+        Log.fatal {"Failed to set user namespace mappings, stopping container..."}
+        cleanup.call
+        exit 1
+      end
     end
 
     Log.info {"Waiting for container to exit..."}
