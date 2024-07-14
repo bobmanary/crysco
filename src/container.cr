@@ -25,11 +25,11 @@ module Crysco
     @process : Crystal::System::Process
 
     # The flags specify what the cloned process can do.
-    # These allow some control overrmounts, pids, IPC data structures, network
-    # devices and hostname.
+    # These allow some control overrmounts, IPC data structures, network
+    # devices and hostname. CLONE_NEWPID is specified separately.
     NAMESPACE_FLAGS = Syscalls::ProcFlags::CLONE_NEWNS | Syscalls::ProcFlags::CLONE_NEWCGROUP |
-            Syscalls::ProcFlags::CLONE_NEWPID | Syscalls::ProcFlags::CLONE_NEWIPC |
-            Syscalls::ProcFlags::CLONE_NEWNET | Syscalls::ProcFlags::CLONE_NEWUTS
+            Syscalls::ProcFlags::CLONE_NEWIPC | Syscalls::ProcFlags::CLONE_NEWNET |
+            Syscalls::ProcFlags::CLONE_NEWUTS
 
     private def initialize(@pid)
       @process = Crystal::System::Process.new(@pid)
@@ -40,11 +40,8 @@ module Crysco
     # All these requirements are specified by the flags we pass to clone()
     def self.spawn(config : ContainerConfig, log_level : Log::Severity) : Container
 
-      # unused but necessary
-      stack = Pointer(Void).null
-      parent_tid = Pointer(LibC::Int).null
-      child_tid = Pointer(LibC::Int).null
-      tls = Pointer(Void).null
+      pidfd = uninitialized LibC::Int
+      pidfd = Cgroups.get_pid_fd(config.hostname) if config.use_existing
 
       Log.debug {"Cloning process..."}
 
@@ -55,34 +52,46 @@ module Crysco
       clone_flags = if config.use_existing
         Syscalls::ProcFlags::SIGCHLD
       else
-        NAMESPACE_FLAGS | Syscalls::ProcFlags::SIGCHLD
+        NAMESPACE_FLAGS | Syscalls::ProcFlags::CLONE_NEWPID | Syscalls::ProcFlags::SIGCHLD
       end
+
+      if config.use_existing
+        # When we want to join an existing container, setns with CLONE_NEWPID
+        # must be called before clone, or the new process will not get a pid inside
+        # the process namespace (e.g. it will launch but not show up in "ps" in the
+        # container).
+        Log.debug {"Joining existing process namespace..."}
+        unless Syscalls.setns(pidfd, Syscalls::ProcFlags::CLONE_NEWPID) == 0
+          Log.error {"Could not join existing process namespace"}
+          exit 1
+        end
+      end
+
+      # unused but necessary
+      stack = Pointer(Void).null
+      parent_tid = Pointer(LibC::Int).null
+      child_tid = Pointer(LibC::Int).null
+      tls = Pointer(Void).null
 
       # clone is a superset of fork's functionality, so the same considerations as
       # calling fork in Crystal apply here.
-      # new_pid = Syscalls.clone(clone_flags, stack, parent_tid, child_tid, tls)
-
-      clone_args = Syscalls::Clone3::CloneArgs.new
-      clone_args.flags = clone_flags
-      new_pid = Syscalls.clone3(pointerof(clone_args), Syscalls::Clone3::CLARGS_SIZE)
+      new_pid = Syscalls.clone(clone_flags, stack, parent_tid, child_tid, tls)
 
       case new_pid
       when -1
         Log.error {"Failed to clone"}
         exit 2
       when 0
-        # new child process with pid 1 inside namespace
+        # new child process inside namespace
         backend_with_formatter = Log::IOBackend.new(formatter: ChildFormatter, dispatcher: Log::DispatchMode::Sync)
         Log.setup(log_level, backend_with_formatter) # Log debug and above for all sources to using a custom backend
 
         if config.use_existing
           pidfd = Cgroups.get_pid_fd(config.hostname)
           Log.debug {"Moving new process to namespaces for existing process..."}
-          puts "PID a: #{Process.pid}"
           unless Syscalls.setns(pidfd, NAMESPACE_FLAGS) == 0
             raise RuntimeError.from_errno("Could not assign existing namespaces")
           end
-          puts "PID b: #{Process.pid}"
         end
 
         container = new(new_pid)

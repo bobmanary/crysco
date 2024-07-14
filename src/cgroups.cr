@@ -53,9 +53,14 @@ module Crysco
 
     # for joining an existing set of namespaces, get the pid of
     # any process in the relevant cgroup
-    def self.get_pid_fd(hostname)
+    def self.get_pid_fd(hostname) : LibC::Int
       cgroup_procs_path = Path.new("/sys", "fs", "cgroup", hostname, "cgroup.procs")
-      pid = File.read(cgroup_procs_path).lines.first.to_i
+      lines = File.read(cgroup_procs_path).lines
+      if lines.empty?
+        Log.error {"No processes found in existing cgroup"}
+        exit 1
+      end
+      pid = lines.first.to_i
       return Syscalls.pidfd_open(pid, 0_u32)
     end
 
