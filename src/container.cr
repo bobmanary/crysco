@@ -60,7 +60,11 @@ module Crysco
 
       # clone is a superset of fork's functionality, so the same considerations as
       # calling fork in Crystal apply here.
-      new_pid = Syscalls.clone(clone_flags, stack, parent_tid, child_tid, tls)
+      # new_pid = Syscalls.clone(clone_flags, stack, parent_tid, child_tid, tls)
+
+      clone_args = Syscalls::Clone3::CloneArgs.new
+      clone_args.flags = clone_flags
+      new_pid = Syscalls.clone3(pointerof(clone_args), Syscalls::Clone3::CLARGS_SIZE)
 
       case new_pid
       when -1
