@@ -8,7 +8,7 @@ module Crysco
   Log.define_formatter ChildFormatter, "[child] #{severity}: #{message}"
 
   class ContainerConfig
-    property uid : Int32
+    property uid : LibC::UidT
     property child_socket : UNIXSocket
     property hostname : String
     property cmd : String
@@ -89,7 +89,7 @@ module Crysco
         if config.use_existing
           pidfd = Cgroups.get_pid_fd(config.hostname)
           Log.debug {"Moving new process to namespaces for existing process..."}
-          unless Syscalls.setns(pidfd, NAMESPACE_FLAGS) == 0
+          unless Syscalls.setns(pidfd, NAMESPACE_FLAGS | Syscalls::ProcFlags::CLONE_NEWUSER) == 0
             raise RuntimeError.from_errno("Could not assign existing namespaces")
           end
         end
@@ -120,11 +120,12 @@ module Crysco
       Log.debug {"Setting hostname, mounts, user namespace, capabilities and syscalls..."}
       properties_initialized = if config.use_existing
         Sec.set_capabilities() &&
-        Sec.set_seccomp_filters()
+        Sec.set_seccomp_filters() &&
+        UserNamespace.change_user(config.uid)
       else
         Hostname.set(config.hostname) &&
         Mount.set(config.mnt) &&
-        UserNamespace.init(0u32, config.child_socket) &&
+        UserNamespace.init(config.uid, config.child_socket) &&
         Sec.set_capabilities() &&
         Sec.set_seccomp_filters()
       end

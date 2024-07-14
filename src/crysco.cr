@@ -12,7 +12,7 @@ module Crysco
   VERSION = "0.1.0"
 
   def self.main
-    uid = 0
+    uid : LibC::UidT = 0
     mnt : String | Nil = nil
     cmd : String | Nil = nil
     cmd_run = false
@@ -25,7 +25,7 @@ module Crysco
       parser.on("run", "run a command in a container") do
         cmd_run = true
         parser.banner = "Usage: crysco run [OPTIONS] COMMAND [-- ARGS]"
-        parser.on("-u UID", "--uid=UID", "uid and gid of the user in the container") { |opt_uid| uid = opt_uid.to_i }
+        parser.on("-u UID", "--uid=UID", "uid and gid of the user in the container") { |opt_uid| uid = opt_uid.to_u32 }
         parser.on("-m DIR", "--mount=DIR", "directory to mount as root in the container") { |opt_mnt| mnt = opt_mnt }
         parser.on("-c ID", "--in-container=ID", "exec command in existing container") { |opt_cgroup_id| existing_cgroup_id = opt_cgroup_id }
         parser.unknown_args do |before, after|

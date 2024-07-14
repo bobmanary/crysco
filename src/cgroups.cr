@@ -38,6 +38,7 @@ module Crysco
       return true
     end
 
+    # add other process to existing cgroup
     def self.join(hostname, pid)
       cgroup_procs_path = Path.new("/sys", "fs", "cgroup", hostname, "cgroup.procs")
       File.write(cgroup_procs_path, pid.to_s, mode: "a")

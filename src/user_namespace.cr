@@ -14,12 +14,12 @@ module Crysco::UserNamespace
   # function by the child. setgroups and setresgid are necessary because of two
   # separate group mechanisms on Linux. The function assumes that every uid has a
   # corresponding gid, which is often the case.
-  def self.init(uid : UInt32, child_socket : UNIXSocket) : Bool
+  def self.init(uid : LibC::UidT, child_socket : UNIXSocket) : Bool
     Log.debug {"Setting user namespace..."}
 
     unshared : Int32 = Syscalls.unshare(Syscalls::ProcFlags::CLONE_NEWUSER)
 
-    Log.debug {"Writing to socket..."}
+    Log.debug {"User namespace created, writing '#{unshared}' to socket..."}
     # can't write a single boolean to socket, so use an int
     # (0 == success)
     child_socket.write_bytes(unshared)
@@ -32,6 +32,14 @@ module Crysco::UserNamespace
       return false
     end
 
+    return false unless change_user(uid)
+
+    Log.debug {"User namespace set"}
+
+    true
+  end
+
+  def self.change_user(uid : LibC::UidT)
     Log.debug {"Switching to uid #{uid} and gid #{uid}"}
 
     Log.debug {"Setting uid and gid mappings..."}
@@ -44,8 +52,6 @@ module Crysco::UserNamespace
       Log.error {"Failed to set uid #{uid} / gid #{uid} mappings"}
       return false
     end
-
-    Log.debug {"User namespace set"}
 
     true
   end
