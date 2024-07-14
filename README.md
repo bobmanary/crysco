@@ -30,13 +30,15 @@ while read -r cmd; do
 done < <(./busybox --list)
 
 # cd back to your crysco repository, then:
-sudo ./crysco run --mount ~/crysco-busybox-container /bin/ls -- -alh /bin
+sudo ./crysco run --mount ~/crysco-busybox-container ls -- -alh /usr/bin
 ```
 
 ## Potential improvements
 
- * Update libcap and libseccomp wrappers to have similar API styles
-   * And make the codebase look less like a C program in general
+ * Code quality
+   * Update libcap and libseccomp wrappers to have similar API styles
+   * Make the codebase look less like a C program in general
+   * Clean up special cases for new container vs existing container?
  * Investigate interaction of pty, TIOCSTI blocking, and BusyBox shells
  * Add support for overlay FS (for putting a mutable layer over top of immutable base directories)
  * Add options for managing environment variables
