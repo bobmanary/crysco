@@ -9,7 +9,7 @@ module Crysco::UserNamespace
   USER_NAMESPACE_UID_CHILD_RANGE_SIZE = 2000
 
   # Lets the parent process know that the user namespace is started.
-  # The parent calls user_namespace_set_user to update the uid_map / gid_map.
+  # The parent calls prepare_mappings to update the uid_map / gid_map.
   # If successful, setgroups, setresgid, and setresuid are called in this
   # function by the child. setgroups and setresgid are necessary because of two
   # separate group mechanisms on Linux. The function assumes that every uid has a

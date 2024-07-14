@@ -9,4 +9,8 @@ module Crysco::Hostname
     end
     true
   end
+
+  def self.generate : String
+    "crysco_" + 4.times.map { Random.rand(97...122).chr }.join
+  end
 end
