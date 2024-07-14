@@ -19,14 +19,14 @@ crystal build --release src/crysco.cr
 In this example, we create an environment with [BusyBox](https://en.wikipedia.org/wiki/BusyBox) utilities (note that the BusyBox shell does not display prompts properly as a result of blocking the [TIOCSTI ioctl](https://isopenbsdsecu.re/mitigations/tiocsti/) with seccomp, but should still be able to execute commands interactively):
 
 ```bash
-mkdir -p ~/crysco-busybox-container/bin
-cd ~/crysco-busybox-container/bin
+mkdir -p ~/crysco-busybox-container/usr/bin
+cd ~/crysco-busybox-container/usr/bin
 wget https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
 chmod +x busybox
 
 # link typical userspace utilities to the busybox binary
 while read -r cmd; do
-  ln -s /bin/busybox $cmd
+  ln -s /usr/bin/busybox $cmd
 done < <(./busybox --list)
 
 # cd back to your crysco repository, then:
@@ -36,6 +36,9 @@ sudo ./crysco run --mount ~/crysco-busybox-container /bin/ls -- -alh /bin
 ## Potential improvements
 
  * Update libcap and libseccomp wrappers to have similar API styles
+   * And make the codebase look less like a C program in general
  * Investigate interaction of pty, TIOCSTI blocking, and BusyBox shells
+ * Add support for overlay FS (for putting a mutable layer over top of immutable base directories)
  * Add options for managing environment variables
  * Handle missing container root gracefully
+ * Linux networking
