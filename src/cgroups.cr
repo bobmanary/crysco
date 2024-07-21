@@ -52,8 +52,8 @@ module Crysco
       Log.debug { "cgroups released" }
     end
 
-    # for joining an existing set of namespaces, get the pid of
-    # any process in the relevant cgroup
+    # for joining an existing set of namespaces, look up a pid we previously
+    # added to a cgroup
     def self.get_pid_fd(hostname) : LibC::Int
       cgroup_procs_path = Path.new("/sys", "fs", "cgroup", hostname, "cgroup.procs")
       lines = File.read(cgroup_procs_path).lines

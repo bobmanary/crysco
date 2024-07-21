@@ -10,13 +10,15 @@ module Crysco
   class ContainerConfig
     property uid : LibC::UidT
     property child_socket : UNIXSocket
+    property parent_socket : UNIXSocket
     property hostname : String
     property cmd : String
     property args : Array(String)
     property mnt : Path
     property use_existing : Bool
 
-    def initialize(@uid, @child_socket, @hostname, @cmd, @args, @mnt, @use_existing)
+    def initialize(@uid, @hostname, @cmd, @args, @mnt, @use_existing)
+      @child_socket, @parent_socket = UNIXSocket.pair(Socket::Type::SEQPACKET)
     end
   end
 
