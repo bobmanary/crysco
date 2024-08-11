@@ -27,7 +27,7 @@ module Crysco
       Log.debug {"Freeing sockets..."}
       config.child_socket.close
       config.parent_socket.close
-      unless config.use_existing
+      unless subcommand.exec?
         Log.debug {"Freeing cgroups..."}
         Cgroups.free(config.hostname)
       end
@@ -36,7 +36,7 @@ module Crysco
     Log.info { "Initializing container..." }
     child = Container.spawn(config, log_level)
 
-    if config.use_existing
+    if subcommand.exec?
       Log.info { "Entering existing cgroup..."}
       if !Cgroups.join(config.hostname, child.pid)
         Log.fatal { "Failed to join cgroup" }

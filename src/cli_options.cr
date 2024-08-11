@@ -64,7 +64,7 @@ module Crysco::CliOptions
     end
 
     errors = [] of String
-  
+
     if subcommand.none?
       puts optparse
       exit
@@ -98,8 +98,9 @@ module Crysco::CliOptions
       container_hostname = Hostname.generate
     end
 
-
-
+    if subcommand.exec?
+      mnt = ""
+    end
     
     config = ContainerConfig.new(
       uid, container_hostname, cmd.as(String), cmd_args,
