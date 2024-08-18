@@ -1,6 +1,6 @@
 # crysco
 
-Crysco is a toy Linux container implementation based on [barco](https://github.com/lucavallin/barco), rewritten in the Crystal language. It utilizes cgroups, namespaces, seccomp and capabilities to provide isolated environments. As a non-C program, it also required writing minimal bindings for libseccomp, libcap, and kernel system calls (not the libc wrappers).
+Crysco is a toy Linux container implementation based on [barco](https://github.com/lucavallin/barco), rewritten in the Crystal language. It utilizes cgroups, namespaces, overlayfs, seccomp and capabilities to provide isolated environments. As a non-C program, it also required writing minimal bindings for libseccomp, libcap, and kernel system calls (not the libc wrappers).
 
 It's basically fancy `chroot` and is not intended for real-world use.
 
@@ -40,7 +40,6 @@ sudo ./crysco run --mount ~/crysco-busybox-container ls -- -alh /usr/bin
    * Make the codebase look less like a C program in general
    * Clean up special cases for new container vs existing container?
  * Investigate interaction of pty, TIOCSTI blocking, and BusyBox shells
- * Add support for overlay FS (for putting a mutable layer over top of immutable base directories)
  * Add options for managing environment variables
  * Handle missing container root gracefully
  * Linux networking
