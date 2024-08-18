@@ -16,8 +16,9 @@ module Crysco
     property args : Array(String)
     property mnt : Path
     property use_existing : Bool
+    property use_overlay : Bool
 
-    def initialize(@uid, @hostname, @cmd, @args, @mnt, @use_existing)
+    def initialize(@uid, @hostname, @cmd, @args, @mnt, @use_existing, @use_overlay)
       @child_socket, @parent_socket = UNIXSocket.pair(Socket::Type::SEQPACKET)
     end
   end
@@ -25,6 +26,7 @@ module Crysco
   class Container
     getter pid : Int32
     @process : Crystal::System::Process
+    @config : ContainerConfig
 
     # The flags specify what the cloned process can do.
     # These allow some control overrmounts, IPC data structures, network
@@ -33,7 +35,7 @@ module Crysco
             Syscalls::ProcFlags::CLONE_NEWIPC | Syscalls::ProcFlags::CLONE_NEWNET |
             Syscalls::ProcFlags::CLONE_NEWUTS
 
-    private def initialize(@pid)
+    private def initialize(@pid, @config)
       @process = Crystal::System::Process.new(@pid)
     end
 
@@ -96,7 +98,7 @@ module Crysco
           end
         end
 
-        container = new(new_pid)
+        container = new(new_pid, config)
         unless container.child_start(config)
           Log.error {"Failed to start container"}
           exit 1
@@ -108,7 +110,7 @@ module Crysco
       else
         # this is the parent process, and it received the pid of the new process
         config.child_socket.close
-        return new(new_pid)
+        return new(new_pid, config)
       end
     end
 
@@ -126,7 +128,7 @@ module Crysco
         UserNamespace.change_user(config.uid)
       else
         Hostname.set(config.hostname) &&
-        Mount.set(config.mnt) &&
+        Mount.set(config.mnt, config.hostname, config.use_overlay) &&
         UserNamespace.init(config.uid, config.child_socket) &&
         Sec.set_capabilities() &&
         Sec.set_seccomp_filters()
@@ -146,6 +148,15 @@ module Crysco
       Process.exec(config.cmd, config.args, shell: false)
 
       return true
+    end
+
+    # should be called from the parent process
+    def cleanup
+      if @config.use_overlay
+        unless OverlayFs.unmount(@config.hostname)
+          Log.warn {"Failed to clean up overlayfs directories"}
+        end
+      end
     end
   end
 end

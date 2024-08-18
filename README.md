@@ -44,3 +44,4 @@ sudo ./crysco run --mount ~/crysco-busybox-container ls -- -alh /usr/bin
  * Add options for managing environment variables
  * Handle missing container root gracefully
  * Linux networking
+ * Handle ctrl-c nicely (currently exits without cleanup)

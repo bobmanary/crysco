@@ -27,7 +27,7 @@ module Crysco
       Log.debug {"Freeing sockets..."}
       config.child_socket.close
       config.parent_socket.close
-      unless subcommand.exec?
+      if subcommand.run?
         Log.debug {"Freeing cgroups..."}
         Cgroups.free(config.hostname)
       end
@@ -60,6 +60,9 @@ module Crysco
 
     Log.info {"Waiting for container to exit..."}
     child.wait
+    if subcommand.run?
+      child.cleanup
+    end
     Log.debug {"Container exited."}
 
     cleanup.call

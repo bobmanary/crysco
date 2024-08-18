@@ -17,6 +17,7 @@ module Crysco::CliOptions
     log_level = Log::Severity::Info
     existing_container_id = ""
     exec_in_existing = false
+    use_overlay = false
 
     optparse = OptionParser.parse do |parser|
       parser.on("run", "run a command in a new container") do
@@ -24,6 +25,7 @@ module Crysco::CliOptions
         parser.banner = "Usage: crysco run [OPTIONS] COMMAND [-- ARGS]"
         parser.on("-u UID", "--uid=UID", "uid and gid of the user in the container") { |opt_uid| uid = opt_uid.to_u32 }
         parser.on("-m DIR", "--mount=DIR", "directory to mount as root in the container") { |opt_mnt| mnt = opt_mnt }
+        parser.on("-o", "--overlay", "use an overlay to prevent modifications to mounted directory") { |opt_overlay| use_overlay = true }
         parser.unknown_args do |before, after|
           unless before.empty?
             cmd = before.first
@@ -104,7 +106,8 @@ module Crysco::CliOptions
     
     config = ContainerConfig.new(
       uid, container_hostname, cmd.as(String), cmd_args,
-      Path[mnt.as(String)].normalize, exec_in_existing
+      Path[mnt.as(String)].normalize, exec_in_existing,
+      use_overlay
     )
 
     return {subcommand, log_level, config}

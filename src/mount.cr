@@ -1,10 +1,23 @@
 require "./syscalls"
+require "./overlay_fs"
 require "file_utils"
 
 module Crysco::Mount
 
-  def self.set(mnt : Path) : Bool
+  def self.set(mnt : Path, hostname : String, use_overlay : Bool) : Bool
     Log.debug {"Setting mount..."}
+
+    if use_overlay
+      Log.debug {"Configuring overlay filesystem..."}
+      overlay_path = OverlayFs.mount_overlay(mnt, hostname)
+      if overlay_path.nil?
+        Log.error {"Failed to set up overlayfs"}
+        return false
+      end
+
+      Log.debug {"Switching from '#{mnt}' to overlay '#{overlay_path}'"}
+      mnt = overlay_path
+    end
 
     Log.debug {"Remounting with MS_PRIVATE"}
     remount_flags = Syscalls::MountFlags::MS_REC | Syscalls::MountFlags::MS_PRIVATE
@@ -28,6 +41,9 @@ module Crysco::Mount
       return false
     end
 
+    # pivot_root will promote the specified directory to the new root and
+    # move the old root to a new location; make a new directory to house
+    # the old root
     temp_inner_dir = mktempdir(tempdir)
     if temp_inner_dir.nil?
       Log.error {"Failed to create inner directory"}
@@ -105,7 +121,7 @@ module Crysco::Mount
       t.to_unsafe,
       Pointer(UInt8).null,
       flag_val,
-      Pointer(UInt32).null
+      Pointer(UInt8).null
     )
 
     if result != 0
@@ -114,14 +130,14 @@ module Crysco::Mount
     result == 0
   end
 
-  def self.mount_proc(target : Path)
+  def self.mount_proc(target : Path) : Bool
     t = target.to_s
     Syscalls.mount(
       "proc".to_unsafe,
       t.to_unsafe,
       "proc".to_unsafe,
       0,
-      Pointer(UInt32).null
+      Pointer(UInt8).null
     ) == 0
   end
 

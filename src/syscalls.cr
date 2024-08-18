@@ -1,6 +1,6 @@
 module Crysco::Syscalls
   Syscall.def_syscall pivot_root, LibC::Int, new_root : UInt8*, put_old : UInt8*
-  Syscall.def_syscall mount, LibC::Int, source : UInt8*, target : UInt8*, filesystemtype : UInt8*, mountflags : UInt32, data : UInt32*
+  Syscall.def_syscall mount, LibC::Int, source : UInt8*, target : UInt8*, filesystemtype : UInt8*, mountflags : UInt32, data : UInt8*
 
   # For our purposes, we only need the clone syscall's flags argument
   # and return value.
