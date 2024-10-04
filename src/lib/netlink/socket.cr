@@ -55,12 +55,12 @@ module Netlink
 
     def bind(groups)
       @groups = groups
-      sockaddr = sockaddr_nl(@pid, groups)
+      sockaddr = self.class.sockaddr_nl(@pid, groups)
       # TODO
-      # @socket.bind
+      @socket.bind(sockaddr)
     end
   
-    def sendmsg(mesg, nlm_type = 0, nlm_flags = 0, flags = 0, dest_sockaddr : String?)
+    def sendmsg(mesg, nlm_type = 0, nlm_flags = 0, flags = 0, dest_sockaddr : String? = nil)
       nlmsg = create_or_update_nlmesg(mesg, nlm_type, nlm_flags)
       @socket.send(nlmsg.encode, flags)
     end
@@ -79,7 +79,5 @@ module Netlink
 end
 
 # using netlink to create veth interface devices?
-# 
-# 
 nl = Netlink::Socket.new(Socket::NetlinkProtocol::ROUTE)
-pp Netlink::Socket.sockaddr_nl(Netlink::Socket.generate_pid, 0).hexstring
+nl.bind(0) # todo: hack up Socket#bind

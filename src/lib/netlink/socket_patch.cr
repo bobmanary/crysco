@@ -1,6 +1,17 @@
 require "socket/common"
 require "socket"
 
+lib SocketPatch
+  struct SockaddrNl
+    sa_family : LibC::SaFamilyT
+    nl_pad : LibC::UShort
+    nl_pid : UInt32
+    nl_groups : UInt32
+  end
+
+  fun bind(fd : Int, addr : SockaddrNl*, len : LibC::SocklenT) : Int
+end
+
 class Socket
   getter family : Family | LibC::UShort
   getter protocol : Protocol | NetlinkProtocol
@@ -52,5 +63,15 @@ class Socket
 
   def self.netlink(protocol : NetlinkProtocol)
     new(AF_NETLINK, Type::RAW, protocol)
+  end
+
+  # def bind(addr : Net)
+  #   system_bind()
+  # end
+
+  private def system_bind(addr : SockaddrNl, addrstr, &)
+    unless SocketPatch.bind(fd, addr, sizeof(addr)) == 0
+      yield ::Socket::BindError.from_errno("Could not bind to '#{addrstr}'")
+    end
   end
 end
