@@ -9,6 +9,16 @@ module Netlink
     getter seq : UInt32
     getter pid : UInt32
 
+    def self.from(buffer : IO::Memory)
+      new(
+        buffer.read_bytes(UInt32),
+        ::Socket::NetlinkMsgType.new(buffer.read_bytes(UInt16)),
+        ::Socket::NetlinkFlags.new(buffer.read_bytes(UInt16)),
+        buffer.read_bytes(UInt32),
+        buffer.read_bytes(UInt32)
+      )
+    end
+
     def initialize(@length, @type, @flags, @seq, @pid)
     end
 

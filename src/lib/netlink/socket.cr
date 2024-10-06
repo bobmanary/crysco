@@ -3,6 +3,7 @@
 require "socket"
 require "./socket_patch"
 require "./msg_header"
+require "./msg_error"
 
 module Netlink
   DEFAULT_BUFFER_SIZE = 32 * 1024
@@ -63,7 +64,7 @@ module Netlink
       sockaddr = self.class.sockaddr_nl(@pid, groups)
       @socket.bind(sockaddr)
     end
-  
+
     def sendmsg(mesg, nlm_type = 0, nlm_flags = 0, flags = 0, dest_sockaddr : String? = nil)
       # nlmsg = create_or_update_nlmesg(mesg, nlm_type, nlm_flags)
       @socket.send(mesg)#, flags)
