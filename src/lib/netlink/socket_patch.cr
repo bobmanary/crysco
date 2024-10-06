@@ -1,4 +1,5 @@
 require "socket/common"
+# require "./netlink_address"
 require "socket"
 
 lib SocketPatch
@@ -9,13 +10,35 @@ lib SocketPatch
     nl_groups : UInt32
   end
 
-  fun bind(fd : Int, addr : SockaddrNl*, len : LibC::SocklenT) : Int
+  # fun bind(fd : LibC::Int, addr : SockaddrNl*, len : LibC::SocklenT) : LibC::Int
 end
 
+
 class Socket
+  AF_NETLINK = 16u16
+
   getter family : Family | LibC::UShort
   getter protocol : Protocol | NetlinkProtocol
-  AF_NETLINK = 16u16
+
+  abstract struct Address
+    getter family : Family | LibC::UShort
+    # copy of Socket.class.from with added NLAddress case
+    def self.from(sockaddr : LibC::Sockaddr*, addrlen) : Address
+      puts "#{typeof(sockaddr.value.sa_family)}"
+      case family = sockaddr.value.sa_family
+      when Family::INET6
+        IPAddress.new(sockaddr.as(LibC::SockaddrIn6*), addrlen.to_i)
+      when Family::INET
+        IPAddress.new(sockaddr.as(LibC::SockaddrIn*), addrlen.to_i)
+      when Family::UNIX
+        UNIXAddress.new(sockaddr.as(LibC::SockaddrUn*), addrlen.to_i)
+      when AF_NETLINK
+        NLAddress.new(sockaddr.as(SocketPatch::SockaddrNl*), addrlen.to_i)
+      else
+        raise "Unsupported family type: #{family}"
+      end
+    end
+  end
 
   enum NetlinkProtocol
     ROUTE            = 0       # Routing/device hook                               
@@ -43,6 +66,55 @@ class Socket
     SMC              = 22      # SMC monitoring
   end
 
+  enum NetlinkFlags : UInt16
+    REQUEST = 0x1
+    MULTI = 0x2
+    ACK = 0x4
+    ECHO = 0x8
+    DUMP_INTR = 0x10
+    DUMP_FILTERED = 0x20
+
+    # Modifiers to GET request
+    ROOT = 0x100
+    MATCH = 0x200
+    ATOMIC = 0x400
+    F_DUMP = 0x100 | 0x200
+
+    # Modifiers to DELETE request
+    NONREC = 0x100
+    BULK = 0x200
+
+    # Modifiers for ACK message
+    CAPPED = 0x100
+    ACK_TLVS = 0x200
+  end
+
+  enum NetlinkMsgType : UInt16
+    NOOP = 0x1
+    ERROR = 0x2
+    DONE = 0x3
+    OVERRUN = 0x4
+  end
+
+  struct NLAddress < Address
+    getter pid : UInt32
+    getter groups : UInt32
+
+    def initialize(sockaddr : SocketPatch::SockaddrNl*, @size)
+      @family = AF_NETLINK
+      @pid = sockaddr.value.nl_pid
+      @groups = sockaddr.value.nl_groups
+    end
+
+    def to_unsafe : LibC::Sockaddr*
+      sockaddr = Pointer(SocketPatch::SockaddrNl).malloc
+      sockaddr.value.sa_family = @family
+      sockaddr.nl_pid = @pid
+      sockaddr.value.nl_groups = @groups
+      sockaddr.as(LibC::Sockaddr*)
+    end
+  end
+
   private def initialize(@family : LibC::UShort, @type : Type, @protocol : NetlinkProtocol, blocking = false)
     fd = create_handle(family, type, protocol, blocking)
     @volatile_fd = Atomic.new(fd)
@@ -65,12 +137,12 @@ class Socket
     new(AF_NETLINK, Type::RAW, protocol)
   end
 
-  # def bind(addr : Net)
-  #   system_bind()
-  # end
+  def bind(addr : SocketPatch::SockaddrNl)
+    system_bind(addr, addr.to_s) { |errno| raise errno }
+  end
 
-  private def system_bind(addr : SockaddrNl, addrstr, &)
-    unless SocketPatch.bind(fd, addr, sizeof(addr)) == 0
+  private def system_bind(addr : SocketPatch::SockaddrNl, addrstr, &)
+    unless LibC.bind(fd, pointerof(addr).as(Pointer(LibC::Sockaddr)), sizeof(SocketPatch::SockaddrNl)) == 0
       yield ::Socket::BindError.from_errno("Could not bind to '#{addrstr}'")
     end
   end
