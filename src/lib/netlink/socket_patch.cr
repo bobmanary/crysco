@@ -24,7 +24,6 @@ class Socket
     getter family : Family | LibC::UShort
     # copy of Socket.class.from with added NLAddress case
     def self.from(sockaddr : LibC::Sockaddr*, addrlen) : Address
-      puts "#{typeof(sockaddr.value.sa_family)}"
       case family = sockaddr.value.sa_family
       when Family::INET6
         IPAddress.new(sockaddr.as(LibC::SockaddrIn6*), addrlen.to_i)
@@ -94,6 +93,101 @@ class Socket
     ERROR = 0x2
     DONE = 0x3
     OVERRUN = 0x4
+
+    RTM_BASE = 16
+
+    RTM_NEWLINK = 16
+    RTM_DELLINK
+    RTM_GETLINK
+    RTM_SETLINK
+
+    RTM_NEWADDR = 20
+    RTM_DELADDR
+    RTM_GETADDR
+
+    RTM_NEWROUTE = 24
+    RTM_DELROUTE
+    RTM_GETROUTE
+
+    RTM_NEWNEIGH = 28
+    RTM_DELNEIGH
+    RTM_GETNEIGH
+
+    RTM_NEWRULE = 32
+    RTM_DELRULE
+    RTM_GETRULE
+
+    RTM_NEWQDISC = 36
+    RTM_DELQDISC
+    RTM_GETQDISC
+
+    RTM_NEWTCLASS = 40
+    RTM_DELTCLASS
+    RTM_GETTCLASS
+
+    RTM_NEWTFILTER = 44
+    RTM_DELTFILTER
+    RTM_GETTFILTER
+
+    RTM_NEWACTION = 48
+    RTM_DELACTION
+    RTM_GETACTION
+
+    RTM_NEWPREFIX = 52
+
+    RTM_GETMULTICAST = 58
+
+    RTM_GETANYCAST = 62
+
+    RTM_NEWNEIGHTBL = 64
+    RTM_GETNEIGHTBL = 66
+    RTM_SETNEIGHTBL
+
+    RTM_NEWNDUSEROPT = 68
+
+    RTM_NEWADDRLABEL = 72
+    RTM_DELADDRLABEL
+    RTM_GETADDRLABEL
+
+    RTM_GETDCB = 78
+    RTM_SETDCB
+
+    RTM_NEWNETCONF = 80
+    RTM_DELNETCONF
+    RTM_GETNETCONF = 82
+
+    RTM_NEWMDB = 84
+    RTM_DELMDB = 85
+    RTM_GETMDB = 86
+
+    RTM_NEWNSID = 88
+    RTM_DELNSID = 89
+    RTM_GETNSID = 90
+
+    RTM_NEWSTATS = 92
+    RTM_GETSTATS = 94
+
+    RTM_NEWCACHEREPORT = 96
+
+    RTM_NEWCHAIN = 100
+    RTM_DELCHAIN
+    RTM_GETCHAIN
+
+    RTM_NEWNEXTHOP = 104
+    RTM_DELNEXTHOP
+    RTM_GETNEXTHOP
+
+    RTM_NEWLINKPROP = 108
+    RTM_DELLINKPROP
+    RTM_GETLINKPROP
+
+    RTM_NEWVLAN = 112
+    RTM_DELVLAN
+    RTM_GETVLAN
+
+    RTM_NEWNEXTHOPBUCKET = 116
+    RTM_DELNEXTHOPBUCKET
+    RTM_GETNEXTHOPBUCKET
   end
 
   struct NLAddress < Address
