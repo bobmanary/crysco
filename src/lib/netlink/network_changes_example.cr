@@ -1,130 +1,19 @@
 # require "socket"
 require "./socket_patch"
 require "./socket"
+require "./protocol"
+require "./protocol/route"
 
-IFLA_MAX = 58
 RATTR_SIZE = 4
 VERBOSE = false
 
-enum IFLA : UInt16
-	UNSPEC
-	ADDRESS
-	BROADCAST
-	IFNAME
-	MTU
-	LINK
-	QDISC
-	STATS
-	COST
-	PRIORITY
-	MASTER
-	WIRELESS # Wireless Extension event - see wireless.h
-	PROTINFO # Protocol specific information for a link
-	TXQLEN
-	MAP
-	WEIGHT
-	OPERSTATE
-	LINKMODE
-	LINKINFO
-	NET_NS_PID
-	IFALIAS
-	NUM_VF # Number of VFs if device is SR-IOV PF
-	VFINFO_LIST
-	STATS64
-	VF_PORTS
-	PORT_SELF
-	AF_SPEC
-	GROUP # Group the device belongs to
-	NET_NS_FD
-	EXT_MASK # Extended info mask, VFs, etc
-	PROMISCUITY # Promiscuity count: > 0 means acts PROMISC
-	NUM_TX_QUEUES
-	NUM_RX_QUEUES
-	CARRIER
-	PHYS_PORT_ID
-	CARRIER_CHANGES
-	PHYS_SWITCH_ID
-	LINK_NETNSID
-	PHYS_PORT_NAME
-	PROTO_DOWN
-	GSO_MAX_SEGS
-	GSO_MAX_SIZE
-	PAD
-	XDP
-	EVENT
-	NEW_NETNSID
-	IF_NETNSID
-	TARGET_NETNSID = IF_NETNSID # new alias
-	CARRIER_UP_COUNT
-	CARRIER_DOWN_COUNT
-	NEW_IFINDEX
-	MIN_MTU
-	MAX_MTU
-	PROP_LIST
-	ALT_IFNAME # Alternative ifname
-	PERM_ADDRESS
-	PROTO_DOWN_REASON
-
-	# device (sysfs) name as parent, used instead
-	# of IFLA::LINK where there's no parent netdev
-	PARENT_DEV_NAME
-	PARENT_DEV_BUS_NAME
-
-	MAX
-end
 
 
 # using netlink to create veth interface devices?
-nl = Netlink::Socket.new(Socket::NetlinkProtocol::ROUTE)
-groups = Netlink::Routes::LINK | Netlink::Routes::IPV4_IFADDR | Netlink::Routes::IPV4_ROUTE
-nl.bind(groups.to_i)
-
-class IfInfoMsg
-  getter family : LibC::Char
-  @pad : LibC::Char
-  getter type : LibC::UShort
-  getter index : LibC::Int
-  getter flags : LibC::UInt
-  getter change : LibC::UInt
-
-  def initialize(@family, @pad, @type, @index, @flags, @change)
-  end
-
-  def self.from(buffer : IO)
-    new(
-      buffer.read_bytes(LibC::Char),
-      buffer.read_bytes(LibC::Char),
-      buffer.read_bytes(LibC::UShort),
-      buffer.read_bytes(LibC::Int),
-      buffer.read_bytes(LibC::UInt),
-      buffer.read_bytes(LibC::UInt)
-    )
-  end
-end
-
-class RouteAttr
-  getter length : LibC::UShort
-  getter type : LibC::UShort
-  getter data : Bytes
-
-  def initialize(@length, @type, @data)
-  end
-
-  def self.from(attr_length, buffer : IO)
-    pos = buffer.pos
-    attr = new(
-      attr_length,
-      buffer.read_bytes(LibC::UShort),
-      buffer.to_slice[buffer.pos, attr_length - RATTR_SIZE]
-    )
-    puts "offset before: #{pos}, after: #{buffer.pos + attr_length}, data size: #{attr_length}, data: #{attr.data}" if VERBOSE
-    buffer.seek(nl_align(buffer.pos + attr_length - RATTR_SIZE))
-    attr
-  rescue err
-    pp [buffer.size, buffer.pos, attr_length]
-    raise err
-  end
-end
+# nl = Netlink::Socket.new(Socket::NetlinkProtocol::ROUTE)
+# groups = Netlink::Routes::LINK | Netlink::Routes::IPV4_IFADDR | Netlink::Routes::IPV4_ROUTE
+# nl.bind(groups.value)
+nl = Netlink::Protocol::Route.socket
 
 def nl_align(pos)
   pos + 3 & ~3
@@ -137,8 +26,8 @@ def rta_ok(attr_length, msg_length)
 end
 
 
-def parse_route_attrs(buffer, enum_max) : Array(RouteAttr?)
-  attr_table = Array(RouteAttr?).new(enum_max, nil)
+def parse_route_attrs(buffer, enum_max) : Hash(Netlink::Protocol::Route::IFLA, Netlink::Protocol::Route::RouteAttr)
+  attr_table = Hash(Netlink::Protocol::Route::IFLA, Netlink::Protocol::Route::RouteAttr).new
   remaining = buffer.size# - buffer.pos
   i = 0
   loop do
@@ -147,25 +36,24 @@ def parse_route_attrs(buffer, enum_max) : Array(RouteAttr?)
     break if buffer.size - buffer.pos < 4
     attr_len = buffer.read_bytes(LibC::UShort)
     remaining -= nl_align(attr_len)
-    attr = RouteAttr.from(attr_len, buffer)
-    puts "rattr {\n  len #{attr.length}\n  type #{attr.type} (#{attr.type.to_i})\n}" if VERBOSE
+    attr = Netlink::Protocol::Route::RouteAttr.from(attr_len, buffer)
+    puts "rattr {\n  len #{attr.length}\n  type IFLA::#{attr.type} (#{attr.type.value})\n  is_nested #{attr.is_nested}\n}" if VERBOSE
     unless rta_ok(attr_len, remaining)
-      puts "rta not ok: #{attr_len}, #{remaining}, #{buffer.pos}" if VERBOSE
+      puts "RTATTR NOT OK: attr_len: #{attr_len}, remain: #{remaining}, buffer: #{buffer.pos}/#{buffer.size}, data size: #{attr.data.size}" if VERBOSE
       next
     end
 
-    if attr.type < enum_max
+    if attr.type.value < enum_max
       attr_table[attr.type] = attr
     end
   end
   attr_table
 end
 
-
-msg = Netlink::MsgHeader.new(
+msg = Netlink::Protocol::Route::MsgHeader.new(
   16u32, # size of the header struct, since we're not adding a payload
-  Socket::NetlinkMsgType::NOOP,
-  (Socket::NetlinkFlags::REQUEST | Socket::NetlinkFlags::ACK), # ACK will make the kernel always send a response back
+  Netlink::Protocol::Route::MessageType::NOOP,
+  (Netlink::Protocol::MessageFormatFlag::REQUEST | Netlink::Protocol::MessageFormatFlag::ACK), # ACK will make the kernel always send a response back
   28u32, # arbitrary sequence number
   nl.pid
 )
@@ -177,13 +65,13 @@ received_count = 0
 def handle_message(response : IO)
   r = {response.to_slice}
   puts "position before parsing header: #{response.pos}" if VERBOSE
-  header = Netlink::MsgHeader.from(response)
+  header = Netlink::Protocol::Route::MsgHeader.from!(response)
   if header.length != response.size
     puts "oh no! message size mismatch: #{header.length} != #{response.size}"
     exit 1
   end
 
-  puts "\n\n---message type: #{header.type.to_s} (##{header.type.to_i})" if VERBOSE
+  puts "\n\n---message type: #{header.type.to_s} (##{header.type.value})" if VERBOSE
   # path = Path["./netlink-samples", "#{received_count.to_s.rjust(3, '0')}-#{header.type.to_s}"]
   # File.write(path, r[0])
   # received_count += 1
@@ -191,33 +79,45 @@ def handle_message(response : IO)
   print_bytes(r[0]) if VERBOSE
 
   case header.type
-  when ::Socket::NetlinkMsgType::ERROR
+  when Netlink::Protocol::Route::MessageType::ERROR
     # should receive an error 0 back and a copy of the header we sent
-    error = Netlink::MsgError.from(response)
-    puts "error number: #{error.error}" if VERBOSE
-    pp error.header if VERBOSE
-  # when ::Socket::NetlinkMsgType::RTM_NEWADDR
-  when ::Socket::NetlinkMsgType::RTM_NEWROUTE
-  when ::Socket::NetlinkMsgType::RTM_DELROUTE
-  when ::Socket::NetlinkMsgType::RTM_DELLINK
-    puts "position before parsing IfInfoMsg: #{response.pos}" if VERBOSE
-    data = IfInfoMsg.from(response)
+    error_code = response.read_bytes(Int32)
+    puts "error number: #{error_code}" if VERBOSE
+    # error = Netlink::MsgError.from(response)
+    # puts "error number: #{error.error}" if VERBOSE
+    # pp error.header if VERBOSE
+  # when Netlink::Protocol::Route::MessageType::RTM_NEWADDR
+  # when Netlink::Protocol::Route::MessageType::RTM_NEWROUTE
+  # when Netlink::Protocol::Route::MessageType::RTM_DELROUTE
+  when Netlink::Protocol::Route::MessageType::RTM_NEWLINK
+    data = Netlink::Protocol::Route::InterfaceInfoMessage.from!(response)
     pp data if VERBOSE
     while response.pos < response.size
-      table = parse_route_attrs(response, IFLA::MAX.to_i)
-      attr = table[IFLA::IFNAME.to_i]
-      if attr.is_a?(RouteAttr)
+      table = parse_route_attrs(response, Netlink::Protocol::Route::IFLA::MAX.value)
+      if table.has_key?(Netlink::Protocol::Route::IFLA::IFNAME)
+        attr = table[Netlink::Protocol::Route::IFLA::IFNAME]
+        ifname = String.new(attr.data)
+        puts "Network interface #{ifname} was added"
+      end
+    end
+  when Netlink::Protocol::Route::MessageType::RTM_DELLINK
+    data = Netlink::Protocol::Route::InterfaceInfoMessage.from!(response)
+    pp data if VERBOSE
+    while response.pos < response.size
+      table = parse_route_attrs(response, Netlink::Protocol::Route::IFLA::MAX.value)
+      if table.has_key?(Netlink::Protocol::Route::IFLA::IFNAME)
+        attr = table[Netlink::Protocol::Route::IFLA::IFNAME]
         ifname = String.new(attr.data)
         puts "Network interface #{ifname} was removed"
       end
       # begin
       #   rattr_len = response.read_bytes(UInt16)
-      #   rattr_type = IFLA.new(response.read_bytes(UInt16))
+      #   rattr_type = Netlink::Protocol::Route::IFLA.new(response.read_bytes(UInt16))
       # rescue
       #   puts "error reading rattr length or type"
       #   exit 1
       # end
-      # if rattr_type >= IFLA::MAX
+      # if rattr_type >= Netlink::Protocol::Route::IFLA::MAX
       #   puts "rta_type > max, skipping"
       #   response.pos = nl_align(response.pos + rattr_len - RATTR_SIZE)
       #   next
@@ -238,7 +138,7 @@ def handle_message(response : IO)
       #   exit 1
       # end
 
-      # puts "rattr {\n  len #{rattr_len}\n  type #{rattr_type} (#{rattr_type.to_i})\n  data #{rattr_data}\n}"
+      # puts "rattr {\n  len #{rattr_len}\n  type #{rattr_type} (#{rattr_type.value})\n  data #{rattr_data}\n}"
     end
     # puts "position before parsing attrs: #{response.pos}"
 
@@ -247,12 +147,13 @@ def handle_message(response : IO)
     # pp attrs.select {|attr| !attr.nil? }
     # todo: figure out how to parse the rest of the message?
     # (rtattr/ifla_*)
-    
+  else
+    puts "message type: #{header.type.to_s}"
   end
 
 
 
-  puts "type: #{header.type} (#{header.type.to_u16}), message length: #{header.length}, multi: #{header.flags & ::Socket::NetlinkFlags::MULTI}"
+  puts "type: #{header.type} (#{header.type.to_u16}), message length: #{header.length}, multi: #{header.flags & ::Netlink::Protocol::MessageFormatFlag::MULTI}"
 end
 
 def print_bytes(slice)
@@ -261,7 +162,7 @@ def print_bytes(slice)
   slice.each do |n|
     if i == 0
       print j.to_s.rjust(4)
-      print "  "
+      print "    "
     end
     print n.to_s.rjust(4)
     if n >= 32 && n <= 126
@@ -273,6 +174,8 @@ def print_bytes(slice)
     if i == 4
       print '\n'
       i = 0
+    else
+      print ' '
     end
     j += 1
   end
@@ -282,7 +185,7 @@ end
 while true
   response = IO::Memory.new
   r = nl.receive()
-  
+
   response.write(r[0])
   response.rewind
   handle_message(response)

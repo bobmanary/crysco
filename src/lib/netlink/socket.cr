@@ -8,12 +8,6 @@ require "./msg_error"
 module Netlink
   DEFAULT_BUFFER_SIZE = 32 * 1024
 
-  enum Routes
-    LINK = 1
-    IPV4_IFADDR = 0x10
-    IPV4_ROUTE = 0x40
-  end
-
   class Socket
     @socket : ::Socket
     @family : ::Socket::NetlinkProtocol
