@@ -65,9 +65,29 @@ module Netlink
     end
 
     def receive()
-      bytes = Bytes.new(4096)
+      bytes = Bytes.new(4096 * 4) # is this the right length?
       bytes_read, addr = @socket.receive(bytes)
       {bytes[0...bytes_read], addr}
+    end
+
+    def wait_for_multiple(message_types : Set(UInt16))
+      count = message_types.size
+      received_messages = Hash(UInt16, IO::Memory).new
+      loop do
+        response = receive()
+        message = IO::Memory.new
+        message.write(response[0])
+        type = message.read_bytes(UInt16)
+        if message_types.includes?(type) && !receved_messages.key?(type)
+          received_messages[type] = message
+          message.rewind
+        end
+        if received_messages.size == count
+          break
+        end
+      end
+
+      received_messages
     end
 
     private def create_or_update_nlmesg(message : String)

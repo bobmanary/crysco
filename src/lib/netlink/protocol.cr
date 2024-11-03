@@ -17,7 +17,7 @@ module Netlink
       ROOT = 0x100
       MATCH = 0x200
       ATOMIC = 0x400
-      F_DUMP = 0x100 | 0x200
+      DUMP = 0x100 | 0x200
 
       # Modifiers to DELETE request
       NONREC = 0x100

@@ -13,7 +13,7 @@ module Netlink
     getter pid : UInt32
 
     # define with proper MessageType on subclasses:
-    # def self.decode(buffer : IO)
+    # def self.from!(buffer : IO)
     #   new(
     #     buffer.read_bytes(UInt32),
     #     Netlink::Protocol::____::MessageType.new(buffer.read_bytes(UInt16)),

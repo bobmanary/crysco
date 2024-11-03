@@ -1,88 +1,12 @@
 require "../msg_header"
 require "../socket"
+require "./route_message"
 
 module Netlink
   module Protocol
     module Route
 
-      # Link data attribute identifiers
-      # translated from /usr/include/linux/if_link.h
-      enum IFLA : UInt16
-        UNSPEC
-        ADDRESS
-        BROADCAST
-        IFNAME
-        MTU
-        LINK
-        QDISC
-        STATS
-        COST
-        PRIORITY
-        MASTER
-        WIRELESS # Wireless Extension event - see wireless.h
-        PROTINFO # Protocol specific information for a link
-        TXQLEN
-        MAP
-        WEIGHT
-        OPERSTATE
-        LINKMODE
-        LINKINFO
-        NET_NS_PID
-        IFALIAS
-        NUM_VF # Number of VFs if device is SR-IOV PF
-        VFINFO_LIST
-        STATS64
-        VF_PORTS
-        PORT_SELF
-        AF_SPEC
-        GROUP # Group the device belongs to
-        NET_NS_FD
-        EXT_MASK # Extended info mask, VFs, etc
-        PROMISCUITY # Promiscuity count: > 0 means acts PROMISC
-        NUM_TX_QUEUES
-        NUM_RX_QUEUES
-        CARRIER
-        PHYS_PORT_ID
-        CARRIER_CHANGES
-        PHYS_SWITCH_ID
-        LINK_NETNSID
-        PHYS_PORT_NAME
-        PROTO_DOWN
-        GSO_MAX_SEGS
-        GSO_MAX_SIZE
-        PAD
-        XDP
-        EVENT
-        NEW_NETNSID
-        IF_NETNSID
-        TARGET_NETNSID = IF_NETNSID # new alias
-        CARRIER_UP_COUNT
-        CARRIER_DOWN_COUNT
-        NEW_IFINDEX
-        MIN_MTU
-        MAX_MTU
-        PROP_LIST
-        ALT_IFNAME # Alternative ifname
-        PERM_ADDRESS
-        PROTO_DOWN_REASON
-
-        # device (sysfs) name as parent, used instead
-        # of IFLA::LINK where there's no parent netdev
-        PARENT_DEV_NAME
-        PARENT_DEV_BUS_NAME
-        GRO_MAX_SIZ
-        TSO_MAX_SIZE
-        TSO_MAX_SEGS
-        ALLMULTI # Allmulti count: > 0 means acts ALLMULTI
-
-        DEVLINK_PORT
-
-        GSO_IPV4_MAX_SIZE
-        GRO_IPV4_MAX_SIZE
-        DPLL_PIN
-
-        MAX
-      end
+      alias IFLA = LinkMessage::IFLA # ???
 
       # Message event types
       # translated from /usr/include/linux/rtnetlink.h
@@ -229,6 +153,7 @@ module Netlink
         IPV4_ROUTE = 0x40
       end
 
+      RATTR_SIZE = 4
       class RouteAttr
         NLA_F_NESTED = (1 << 15)
         NLA_F_NET_BYTEORDER = (1 << 14)
@@ -249,6 +174,8 @@ module Netlink
           is_nested = type & NLA_F_NESTED == NLA_F_NESTED
           byte_order = type & NLA_F_NET_BYTEORDER == NLA_F_NET_BYTEORDER
 
+          # puts "wat: #{[attr_length, buffer.size, buffer.pos]}"
+          # puts "wat2 #{buffer.pos} #{attr_length}, #{RATTR_SIZE}"
           attr = new(
             attr_length,
             Netlink::Protocol::Route::IFLA.new(type & NLA_TYPE_MASK),
@@ -256,8 +183,12 @@ module Netlink
             byte_order,
             buffer.to_slice[buffer.pos, attr_length - RATTR_SIZE]
           )
-          # puts "offset before: #{pos}, after: #{buffer.pos + attr_length}, data size: #{attr_length}, data: #{attr.data}" if VERBOSE
-          buffer.seek(nl_align(buffer.pos + attr_length - RATTR_SIZE))
+
+          # seek past the data segment, if any
+          if attr_length > RATTR_SIZE
+            buffer.seek(buffer.pos + nl_align(attr_length) - RATTR_SIZE)
+          end
+
           attr
         rescue err
           pp [buffer.size, buffer.pos, attr_length]
@@ -299,6 +230,15 @@ module Netlink
             buffer.read_bytes(LibC::UInt),
             buffer.read_bytes(LibC::UInt)
           )
+        end
+
+        def encode(buffer : IO)
+          buffer.write_bytes(@family)
+          buffer.write_bytes(@type)
+          buffer.write_bytes(@index)
+          buffer.write_bytes(@flags)
+          buffer.write_bytes(@change)
+          return
         end
       end
 
