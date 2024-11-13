@@ -1,6 +1,6 @@
 module Netlink
-  module Protocol
-    module Route
+  module Route
+    module Protocol
       class RouteMessage
         abstract class RouteAttrParser
         end

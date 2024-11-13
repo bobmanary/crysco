@@ -1,10 +1,10 @@
 # require "./socket_patch"
 # require "socket"
 require "./protocol"
-
+require "./message"
 
 module Netlink
-  abstract class MsgHeader
+  abstract class MsgHeader < Message::Segment
     property length : UInt32
     # define with proper MessageType on subclasses:
     # getter type : Netlink::Protocol::____::MessageType

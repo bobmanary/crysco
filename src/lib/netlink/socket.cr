@@ -4,6 +4,7 @@ require "socket"
 require "./socket_patch"
 require "./msg_header"
 require "./msg_error"
+require "./message"
 
 module Netlink
   DEFAULT_BUFFER_SIZE = 32 * 1024
@@ -90,9 +91,11 @@ module Netlink
       received_messages
     end
 
-    private def create_or_update_nlmesg(message : String)
-      header = NlHeader.new(type: type, flags: flags, seq: seqnum, pid: @pid)
-      NlMessage.new(message, header)
+    def request(request : Netlink::Message, &block : Bytes ->)
+      # send a message over the socket, then read a response repeatedly until
+      # the header indicates that there are no more messages. a response will
+      # need to be split into multiple netlink messages based on the header length
+      # attribute
     end
 
     private def seqnum

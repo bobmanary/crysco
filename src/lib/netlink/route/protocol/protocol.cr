@@ -1,10 +1,10 @@
-require "../msg_header"
-require "../socket"
+require "../../msg_header"
+require "../../socket"
 require "./route_message"
 
 module Netlink
-  module Protocol
-    module Route
+  module Route
+    module Protocol
 
       alias IFLA = LinkMessage::IFLA # ???
 
@@ -160,7 +160,7 @@ module Netlink
         NLA_TYPE_MASK = ~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
 
         getter length : LibC::UShort
-        getter type : Netlink::Protocol::Route::IFLA
+        getter type : IFLA
         getter is_nested : Bool
         getter is_network_byte_order : Bool
         getter data : Bytes
@@ -206,6 +206,10 @@ module Netlink
             buffer.read_bytes(UInt32),
             buffer.read_bytes(UInt32)
           )
+        end
+
+        def padded_size : UInt32
+          16_u32
         end
       end
 
