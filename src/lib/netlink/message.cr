@@ -8,9 +8,9 @@ module Netlink
 
     getter size : UInt32
 
-    def initialize
-      @size = 0
-      @segments = [] of Segment
+    def initialize(header : MsgHeader)
+      @size = header.padded_size
+      @segments = [header] of Segment
     end
 
     def add_segment(segment : Segment)
@@ -24,6 +24,11 @@ module Netlink
       @segments.each do |segment|
         segment.encode(buffer)
       end
+
+      # set the message length
+      buffer.rewind
+      buffer.write_bytes(@size)
+      buffer.rewind
 
       buffer
     end

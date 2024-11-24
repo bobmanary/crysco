@@ -65,7 +65,8 @@ module Netlink
       @socket.send(mesg)#, flags)
     end
 
-    def receive()
+    # Read a single raw response from the socket
+    def receive() : {Bytes, NlAddress}
       bytes = Bytes.new(4096 * 4) # is this the right length?
       bytes_read, addr = @socket.receive(bytes)
       {bytes[0...bytes_read], addr}
@@ -91,17 +92,39 @@ module Netlink
       received_messages
     end
 
-    def request(request : Netlink::Message, &block : Bytes ->)
-      # send a message over the socket, then read a response repeatedly until
-      # the header indicates that there are no more messages. a response will
-      # need to be split into multiple netlink messages based on the header length
-      # attribute
+    # Send a message over the socket, then read a response repeatedly until
+    # the header indicates that there are no more messages. A response will
+    # be split into multiple netlink messages based on the header length
+    # attribute. The split messages will be individually yielded to the block
+    # as raw bytes.
+    def request(request : Netlink::Message, &block : IO::Memory ->)
+      sendmsg(request.serialize)
+
+      loop do
+        bytes, address = receive()
+        position = 0u32
+        while position < bytes.size
+          length = bytes_to_u32(bytes[position, 4])
+          yield(IO::Memory.new(bytes[position, length]))
+
+          position = nl_align(position + length)
+        end
+      end
     end
 
     private def seqnum
       current_seqnum = @seqnum
       @seqnum += 1
       current_seqnum
+    end
+
+    def self.nl_align(pos)
+      pos + 3 & ~3
+    end
+
+    private def bytes_to_u32(bytes : Bytes) : UInt32
+      raise "wtf" if bytes.size < 4
+      IO::ByteFormat::SystemEndian.decode(UInt32, bytes)
     end
   end
 end

@@ -40,5 +40,9 @@ module Netlink
       io.write_bytes(@pid)
       return
     end
+
+    def padded_size : UInt32
+      16_u32
+    end
   end
 end
