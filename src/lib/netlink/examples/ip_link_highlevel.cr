@@ -9,5 +9,10 @@ require "../route/route"
 links = Netlink::Route.get_links
 
 links.each do |link|
-  puts link.name
+  addr = link.address
+  brd = link.broadcast
+  mac = addr.nil? ? "" : addr.map {|b| b.to_s(16).rjust(2, '0')}.join(":")
+  broadcast = brd.nil? ? "" : brd.map {|b| b.to_s(16).rjust(2, '0')}.join(":")
+  puts "#{0}: #{link.ifname} <> mtu #{link.mtu} qdisc #{link.qdisc} state ? mode ? group ?\n    link/? #{mac} brd #{broadcast}"
+
 end

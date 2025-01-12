@@ -3,6 +3,7 @@ require "./socket_patch"
 require "./socket"
 require "./protocol"
 require "./protocol/route"
+require "./debug"
 
 RATTR_SIZE = 4
 VERBOSE = false
@@ -150,31 +151,6 @@ def handle_message(response : IO) : Netlink::Protocol::Route::MsgHeader
   header
 end
 
-def print_bytes(slice)
-  i = 0
-  j = 0
-  slice.each do |n|
-    if i == 0
-      print j.to_s.rjust(4)
-      print "    "
-    end
-    print n.to_s.rjust(4)
-    if n >= 32 && n <= 126
-      print " #{String.new(pointerof(n), 1)}"
-    else
-      print " ."
-    end
-    i += 1
-    if i == 4
-      print '\n'
-      i = 0
-    else
-      print ' '
-    end
-    j += 1
-  end
-end
-
 # using netlink to create veth interface devices?
 # nl = Netlink::Socket.new(Socket::NetlinkProtocol::ROUTE)
 # groups = Netlink::Routes::LINK | Netlink::Routes::IPV4_IFADDR | Netlink::Routes::IPV4_ROUTE
@@ -219,7 +195,7 @@ while true
   response.rewind
   if first && VERBOSE
     first = false
-    print_bytes(r[0])
+    Netlink::Debug.print_bytes(r[0])
   end
   loop do
     if nl_align(response.pos) < response.size

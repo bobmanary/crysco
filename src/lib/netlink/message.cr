@@ -1,3 +1,5 @@
+# require "./debug"
+
 module Netlink
   class Message
 
@@ -29,6 +31,8 @@ module Netlink
       buffer.rewind
       buffer.write_bytes(@size)
       buffer.rewind
+
+      # Debug.print_bytes(buffer)
 
       buffer
     end

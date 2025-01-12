@@ -40,11 +40,11 @@ class Socket
   end
 
   enum NetlinkProtocol
-    ROUTE            = 0       # Routing/device hook                               
-    UNUSED           = 1       # Unused number                                     
-    USERSOCK         = 2       # Reserved for user mode socket protocols   
-    FIREWALL         = 3       # Unused number, formerly ip_queue                  
-    SOCK_DIAG        = 4       # socket monitoring                                 
+    ROUTE            = 0       # Routing/device hook
+    UNUSED           = 1       # Unused number
+    USERSOCK         = 2       # Reserved for user mode socket protocols
+    FIREWALL         = 3       # Unused number, formerly ip_queue
+    SOCK_DIAG        = 4       # socket monitoring
     NFLOG            = 5       # netfilter/iptables ULOG
     XFRM             = 6       # ipsec
     SELINUX          = 7       # SELinux event notifications

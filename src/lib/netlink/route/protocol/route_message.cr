@@ -1,4 +1,4 @@
-require "./route_attr"
+require "../../protocol/nl_attr"
 
 module Netlink
   module Route
@@ -6,6 +6,11 @@ module Netlink
       class RouteMessage
         abstract class RouteAttrParser
         end
+
+        # NLA_U32 = ->(attr : NlAttr) { IO::ByteFormat::SystemEndian.decode(UInt32, attr.data }
+        # NLA_U8 = ->(attr : NlAttr) { IO::ByteFormat::SystemEndian.decode(UInt8, attr.data }
+        # NLA_MAC_ADDRESS = ->(attr : NlAttr) { attr.data.to_a }
+        # NLA_STRING = ->(attr : NlAttr) { String.new(attr.data[0...(attr.length - 5)]) }
 
         class AttrTypeUnspec < RouteAttrParser
           # Found in the kernel API, but mainly used here for attributes
@@ -15,25 +20,25 @@ module Netlink
         end
 
         class AttrTypeMacAddress < RouteAttrParser
-          def self.from(attr : RouteAttr) : Array(UInt8)
+          def self.from(attr : Netlink::Protocol::NlAttr) : Array(UInt8)
             attr.data.to_a
           end
         end
 
         class AttrTypeString < RouteAttrParser
-          def self.from(attr : RouteAttr) : String
+          def self.from(attr : Netlink::Protocol::NlAttr) : String
             String.new(attr.data[0...(attr.length - 5)])
           end
         end
 
         class AttrTypeU32 < RouteAttrParser
-          def self.from(attr : RouteAttr) : UInt32
+          def self.from(attr : Netlink::Protocol::NlAttr) : UInt32
             IO::Memory.new(attr.data).read_bytes(UInt32)
           end
         end
 
         class AttrTypeU8 < RouteAttrParser
-          def self.from(attr : RouteAttr) : UInt8
+          def self.from(attr : Netlink::Protocol::NlAttr) : UInt8
             attr.data[0]
           end
         end
@@ -55,24 +60,24 @@ module Netlink
             {% end %}
           {% end %}
 
-          def initialize(attributes : Hash({{enum_name.id}}, RouteAttr))
+          def initialize(attributes : Hash(UInt16, Netlink::Protocol::NlAttr))
             {% for name, type in fields %}
               {% if type.id != "AttrTypeUnspec" %}
-                if attributes.has_key?({{enum_name.id}}::{{name.id}})
-                  @{{name.id.downcase}} = {{type.id}}.from(attributes[{{enum_name.id}}::{{name.id}}])
+                if attributes.has_key?({{enum_name.id}}::{{name.id}}.value)
+                  @{{name.id.downcase}} = {{type.id}}.from(attributes[{{enum_name.id}}::{{name.id}}.value])
                 end
               {% end %}
             {% end %}
           end
 
           def self.from!(buffer : IO::Memory)
-            attr_table = Hash({{enum_name.id}}, RouteAttr).new
+            attr_table = Hash(UInt16, Netlink::Protocol::NlAttr).new
             remaining = buffer.size
             loop do
               attr_len = buffer.read_bytes(LibC::UShort)
-              break unless RouteAttr.ok?(buffer, attr_len)
-              attr = RouteAttr.from(attr_len, buffer)
-              if attr.type.value < {{enum_name.id}}::MAX
+              break unless Netlink::Protocol::NlAttr.ok?(buffer, attr_len)
+              attr = Netlink::Protocol::NlAttr.from(attr_len, buffer)
+              if attr.type < {{enum_name.id}}::MAX.value
                 attr_table[attr.type] = attr
               end
             end

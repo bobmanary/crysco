@@ -7,7 +7,7 @@ module Netlink
   abstract class MsgHeader < Message::Segment
     property length : UInt32
     # define with proper MessageType on subclasses:
-    # getter type : Netlink::Protocol::____::MessageType
+    getter type : UInt16 # Netlink::Protocol::____::MessageType
     getter flags : Netlink::Protocol::MessageFormatFlag
     getter seq : UInt32
     getter pid : UInt32
@@ -23,7 +23,11 @@ module Netlink
     #   )
     # end
 
-    def initialize(@length, @type, @flags, @seq, @pid)
+    def initialize(@length, @type : UInt16, @flags, @seq, @pid)
+    end
+
+    def initialize(@length, type, @flags, @seq, @pid)
+      @type = type.to_u16
     end
 
     def encode : IO::Memory
@@ -34,7 +38,7 @@ module Netlink
 
     def encode(io : IO::Memory)
       io.write_bytes(@length)
-      io.write_bytes(@type.to_u16)
+      io.write_bytes(@type)
       io.write_bytes(@flags.to_u16)
       io.write_bytes(@seq)
       io.write_bytes(@pid)
@@ -43,6 +47,10 @@ module Netlink
 
     def padded_size : UInt32
       16_u32
+    end
+
+    def done?
+      @type == 3
     end
   end
 end

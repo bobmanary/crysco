@@ -27,5 +27,9 @@ module Netlink
       CAPPED = 0x100
       ACK_TLVS = 0x200
     end
+
+    def self.nl_align(pos)
+      pos + 3 & ~3
+    end
   end
 end

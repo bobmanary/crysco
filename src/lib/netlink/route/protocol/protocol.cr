@@ -154,11 +154,11 @@ module Netlink
       end
 
       class MsgHeader < ::Netlink::MsgHeader
-        getter type : MessageType
+        # getter type : MessageType
         def self.from!(buffer : IO)
           new(
             buffer.read_bytes(UInt32), # length
-            MessageType.new(buffer.read_bytes(UInt16)),
+            buffer.read_bytes(UInt16), # MessageType
             Netlink::Protocol::MessageFormatFlag.new(buffer.read_bytes(UInt16)),
             buffer.read_bytes(UInt32), # sequence
             buffer.read_bytes(UInt32) # pid
@@ -171,13 +171,17 @@ module Netlink
       end
 
       # struct ifinfomsg from /usr/include/linux/rtnetlink.h
-      class InterfaceInfoMessage
+      class InterfaceInfoMessage < Netlink::Message::Segment
         getter family : LibC::Char
         @pad : LibC::Char
         getter type : LibC::UShort
         getter index : LibC::Int
         getter flags : LibC::UInt
         getter change : LibC::UInt
+
+        def padded_size : UInt32
+          16_u32
+        end
 
         def initialize(@family, @pad, @type, @index, @flags, @change)
         end
@@ -193,12 +197,13 @@ module Netlink
           )
         end
 
-        def encode(buffer : IO)
-          buffer.write_bytes(@family)
-          buffer.write_bytes(@type)
-          buffer.write_bytes(@index)
-          buffer.write_bytes(@flags)
-          buffer.write_bytes(@change)
+        def encode(io : IO)
+          io.write_bytes(@family)
+          io.write_bytes(@pad)
+          io.write_bytes(@type)
+          io.write_bytes(@index)
+          io.write_bytes(@flags)
+          io.write_bytes(@change)
           return
         end
       end

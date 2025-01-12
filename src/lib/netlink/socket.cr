@@ -5,6 +5,7 @@ require "./socket_patch"
 require "./msg_header"
 require "./msg_error"
 require "./message"
+require "./protocol"
 
 module Netlink
   DEFAULT_BUFFER_SIZE = 32 * 1024
@@ -26,7 +27,6 @@ module Netlink
 
     def initialize(@family : ::Socket::NetlinkProtocol)
       @socket = ::Socket.netlink(@family)
-      puts "socket type: #{@socket.type}"
       @pid = Socket.generate_pid
       @seqnum = 1
       @default_buffer_size = DEFAULT_BUFFER_SIZE
@@ -66,10 +66,10 @@ module Netlink
     end
 
     # Read a single raw response from the socket
-    def receive() : {Bytes, NlAddress}
+    def receive() : {Bytes, ::Socket::NLAddress}
       bytes = Bytes.new(4096 * 4) # is this the right length?
       bytes_read, addr = @socket.receive(bytes)
-      {bytes[0...bytes_read], addr}
+      {bytes[0...bytes_read], addr.as(::Socket::NLAddress)}
     end
 
     def wait_for_multiple(message_types : Set(UInt16))
@@ -107,7 +107,7 @@ module Netlink
           length = bytes_to_u32(bytes[position, 4])
           yield(IO::Memory.new(bytes[position, length]))
 
-          position = nl_align(position + length)
+          position = Protocol.nl_align(position + length)
         end
       end
     end
@@ -116,10 +116,6 @@ module Netlink
       current_seqnum = @seqnum
       @seqnum += 1
       current_seqnum
-    end
-
-    def self.nl_align(pos)
-      pos + 3 & ~3
     end
 
     private def bytes_to_u32(bytes : Bytes) : UInt32
