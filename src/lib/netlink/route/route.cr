@@ -3,7 +3,7 @@ require "../debug"
 
 module Netlink
   module Route
-    def self.get_links : Array(Protocol::LinkMessage)
+    def self.get_network_interfaces : Array(Protocol::InterfaceInfoMessage)
       rt_socket = Protocol.socket
       dump_request = Netlink::Message.new(Protocol::MsgHeader.new(
         32u32, # size of the header struct, since we're not adding a payload
@@ -13,10 +13,10 @@ module Netlink
         rt_socket.pid
       ))
       dump_request.add_segment(Protocol::InterfaceInfoMessage.new(
-        0u8, 0, 0u16, 0, 0u32, 0u32
+        0u8, 0, 0u16, 0, 0u32, 0xFFFFFFFFu32
       ))
 
-      links = [] of Protocol::LinkMessage
+      links = [] of Protocol::InterfaceInfoMessage
       # how are we parsing the messages here? inside .request or in this method?
       rt_socket.request(dump_request) do |response_bytes|
         # Netlink::Debug.print_bytes(response_bytes)
@@ -24,9 +24,7 @@ module Netlink
 
         break if nl_header.done?
 
-        if_info = Protocol::InterfaceInfoMessage.from!(response_bytes)
-        link = Protocol::LinkMessage.from!(response_bytes)
-        links << link
+        links << Protocol::InterfaceInfoMessage.from!(response_bytes)
       end
 
       links

@@ -6,7 +6,7 @@ module Netlink
   module Route
     module Protocol
 
-      alias IFLA = LinkMessage::IFLA # ???
+      alias IFLA = InterfaceAttributes::IFLA # ???
 
       # Message event types
       # translated from /usr/include/linux/rtnetlink.h
@@ -146,6 +146,31 @@ module Netlink
         RTA_MAX
       end
 
+      # net_device_flags (IFF_UP etc) from /usr/include/linux/if.h
+      @[Flags]
+      enum DeviceFlags : UInt32
+        UP                          = 1<<0  # sysfs
+        BROADCAST                   = 1<<1  # __volatile__
+        DEBUG                       = 1<<2  # sysfs
+        LOOPBACK                    = 1<<3  # __volatile__
+        POINTOPOINT                 = 1<<4  # __volatile__
+        NOTRAILERS                  = 1<<5  # sysfs
+        RUNNING                     = 1<<6  # __volatile__
+        NOARP                       = 1<<7  # sysfs
+        PROMISC                     = 1<<8  # sysfs
+        ALLMULTI                    = 1<<9  # sysfs
+        MASTER                      = 1<<10 # __volatile__
+        SLAVE                       = 1<<11 # __volatile__
+        MULTICAST                   = 1<<12 # sysfs
+        PORTSEL                     = 1<<13 # sysfs
+        AUTOMEDIA                   = 1<<14 # sysfs
+        DYNAMIC                     = 1<<15 # sysfs
+        LOWER_UP                    = 1<<16 # __volatile__
+        DORMANT                     = 1<<17 # __volatile__
+        ECHO                        = 1<<18 # __volatile__
+      end
+
+
       # rtnetlink_groups from /usr/include/linux/rtnetlink.h
       enum Groups
         LINK = 1
@@ -176,15 +201,23 @@ module Netlink
         @pad : LibC::Char
         getter type : LibC::UShort
         getter index : LibC::Int
-        getter flags : LibC::UInt
+        getter flags : DeviceFlags
         getter change : LibC::UInt
+        getter attributes : InterfaceAttributes
 
         def padded_size : UInt32
           16_u32
         end
 
-        def initialize(@family, @pad, @type, @index, @flags, @change)
+        def initialize(@family, @pad, @type, @index, flags, @change, @attributes)
+          @flags = DeviceFlags.new(flags)
         end
+
+        def initialize(@family, @pad, @type, @index, flags, @change)
+          @flags = DeviceFlags.new(flags)
+          @attributes = InterfaceAttributes.new(Hash(UInt16, Netlink::Protocol::NlAttr).new)
+        end
+
 
         def self.from!(buffer : IO)
           new(
@@ -193,7 +226,8 @@ module Netlink
             buffer.read_bytes(LibC::UShort),
             buffer.read_bytes(LibC::Int),
             buffer.read_bytes(LibC::UInt),
-            buffer.read_bytes(LibC::UInt)
+            buffer.read_bytes(LibC::UInt),
+            InterfaceAttributes.from!(buffer)
           )
         end
 
@@ -202,7 +236,7 @@ module Netlink
           io.write_bytes(@pad)
           io.write_bytes(@type)
           io.write_bytes(@index)
-          io.write_bytes(@flags)
+          io.write_bytes(@flags.value)
           io.write_bytes(@change)
           return
         end

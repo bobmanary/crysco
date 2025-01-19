@@ -87,7 +87,8 @@ module Netlink
         end
       end
 
-      class LinkMessage < RouteMessage
+      class InterfaceAttributes < RouteMessage
+        @if_info : InterfaceInfoMessage?
         # Link data attribute identifiers
         # translated from /usr/include/linux/if_link.h
         define_attribute_enum(IFLA, UInt16, {

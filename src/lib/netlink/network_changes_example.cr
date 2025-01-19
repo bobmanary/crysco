@@ -42,7 +42,7 @@ def parse_route_attrs(buffer, enum_max) : Hash(Netlink::Protocol::Route::IFLA, N
     end
   end
 
-  pp Netlink::Protocol::Route::LinkMessage.new(attr_table)
+  pp Netlink::Protocol::Route::InterfaceAttributes.new(attr_table)
   attr_table
 end
 
