@@ -199,7 +199,7 @@ module Netlink
       class InterfaceInfoMessage < Netlink::Message::Segment
         getter family : LibC::Char
         @pad : LibC::Char
-        getter type : LibC::UShort
+        getter type : LibC::UShort # /usr/include/linux/if_arp.h ARPHRD_* enum
         getter index : LibC::Int
         getter flags : DeviceFlags
         getter change : LibC::UInt
